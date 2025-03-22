@@ -174,7 +174,7 @@ struct DEV_AirQualitySensor : Service::AirQualitySensor {
         int quality;
         if(reading < 1500) quality = 1;      // EXCELLENT
         else if(reading < 2000) quality = 2;  // GOOD
-        else if(reading < 3500) quality = 3;  // FAIR
+        else if(reading < 3000) quality = 3;  // FAIR
         else if(reading < 4000) quality = 4;  // INFERIOR
         else quality = 5;                     // POOR
         
