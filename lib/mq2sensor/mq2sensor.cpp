@@ -29,7 +29,7 @@ int readMQ2Sensor() {
 int convertToAirQuality(int reading) {
     // 根据气体浓度确定空气质量等级
     int quality;
-    if(reading < 1500) quality = 1;      // EXCELLENT - 优
+    if(reading < 1000) quality = 1;      // EXCELLENT - 优
     else if(reading < 2000) quality = 2;  // GOOD - 良
     else if(reading < 3000) quality = 3;  // FAIR - 一般
     else if(reading < 4000) quality = 4;  // INFERIOR - 差
