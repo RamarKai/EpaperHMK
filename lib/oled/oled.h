@@ -1,0 +1,53 @@
+/**
+ * @file oled.h
+ * @brief OLED显示屏相关功能声明
+ * @details 包含OLED显示屏初始化、更新和显示功能的声明
+ */
+
+#ifndef OLED_H    // 头文件保护宏定义开始
+#define OLED_H    // 定义头文件保护宏
+
+#include <Adafruit_SSD1306.h>  // 包含OLED显示屏驱动库
+#include <Wire.h>              // 包含I2C通信库
+#include <FastLED.h>           // 包含FastLED库，用于处理RGB颜色类型
+
+// OLED显示屏配置参数
+#define SCREEN_WIDTH 128     // OLED显示屏宽度，单位像素
+#define SCREEN_HEIGHT 64     // OLED显示屏高度，单位像素
+#define OLED_RESET -1        // OLED重置引脚，-1表示使用Arduino的重置引脚
+#define SCREEN_ADDRESS 0x3C  // OLED显示屏I2C地址，0x3C为常见地址
+
+// OLED接口引脚定义
+#define OLED_SDA 21     // OLED的SDA引脚，用于I2C数据传输
+#define OLED_SCL 22     // OLED的SCL引脚，用于I2C时钟信号
+
+// 外部OLED对象声明
+extern Adafruit_SSD1306 display;  // OLED显示屏对象
+extern TwoWire I2C_OLED;         // OLED使用的I2C，使用第一个I2C控制器
+
+/**
+ * @brief 初始化OLED显示屏
+ * @details 配置I2C接口并初始化OLED显示屏
+ * @return bool 初始化成功返回true，否则返回false
+ */
+bool initOLED();
+
+/**
+ * @brief 更新OLED显示内容
+ * @details 在OLED上显示传感器数据和LED状态
+ */
+void updateDisplay();
+
+/**
+ * @brief 在OLED上显示启动画面
+ * @details 在系统启动时显示的欢迎信息
+ */
+void showStartupScreen();
+
+/**
+ * @brief 在OLED上显示错误信息
+ * @param errorMsg 要显示的错误信息
+ */
+void showError(const char* errorMsg);
+
+#endif  // OLED_H    // 头文件保护宏定义结束 

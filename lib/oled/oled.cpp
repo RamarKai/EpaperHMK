@@ -4,19 +4,7 @@
  * @details 包含OLED显示屏初始化、更新和显示功能
  */
 
-#include <Adafruit_SSD1306.h>  // 包含OLED显示屏驱动库
-#include <Wire.h>              // 包含I2C通信库
-#include <FastLED.h>           // 包含FastLED库，用于处理RGB颜色类型
-
-// OLED显示屏配置参数
-#define SCREEN_WIDTH 128     // OLED显示屏宽度，单位像素
-#define SCREEN_HEIGHT 64     // OLED显示屏高度，单位像素
-#define OLED_RESET -1        // OLED重置引脚，-1表示使用Arduino的重置引脚
-#define SCREEN_ADDRESS 0x3C  // OLED显示屏I2C地址，0x3C为常见地址
-
-// OLED接口引脚定义
-#define OLED_SDA 21     // OLED的SDA引脚，用于I2C数据传输
-#define OLED_SCL 22     // OLED的SCL引脚，用于I2C时钟信号
+#include "oled.h"    // 包含对应的头文件
 
 // 创建OLED专用I2C实例
 TwoWire I2C_OLED = TwoWire(0);  // OLED使用的I2C，使用第一个I2C控制器
@@ -28,8 +16,8 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &I2C_OLED, OLED_RESET);  /
 extern float lightLevel;  // 光照强度，定义在lightsensor.cpp
 extern bool bh1750_ok;    // BH1750传感器状态，定义在lightsensor.cpp
 extern int gasLevel;      // 气体浓度，定义在mq2sensor.cpp
-extern bool ledState;     // LED状态，定义在main.cpp
-extern CRGB currentColor; // 当前LED颜色，定义在main.cpp
+extern bool ledState;     // LED状态，定义在ws2812.cpp或main.cpp
+extern CRGB currentColor; // 当前LED颜色，定义在ws2812.cpp或main.cpp
 
 /**
  * @brief 初始化OLED显示屏
@@ -135,4 +123,4 @@ void showError(const char* errorMsg) {
     display.setCursor(0, 16);
     display.println(errorMsg);
     display.display();
-}
+} 

@@ -8,7 +8,7 @@
 // 包含气体传感器头文件
 #include "mq2sensor.h"
 // 包含OLED显示屏头文件
-#include "../lib/oled.cpp"
+#include "oled.h"
 // 包含WS2812B LED头文件
 #include "ws2812.h"
 
