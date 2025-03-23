@@ -4,9 +4,9 @@
 //#include <FastLED.h>
 
 // 包含光照传感器头文件
-#include "../lib/lightsensor.cpp"
+#include "lightsensor.h"
 // 包含气体传感器头文件
-#include "../lib/mq2sensor.cpp"
+#include "mq2sensor.h"
 // 包含OLED显示屏头文件
 #include "../lib/oled.cpp"
 // 包含WS2812B LED头文件

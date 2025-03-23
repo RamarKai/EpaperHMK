@@ -4,12 +4,7 @@
  * @details 包含BH1750传感器初始化、读取和HomeSpan服务实现
  */
 
-#include "HomeSpan.h"      // 包含HomeSpan库，提供HomeKit功能支持
-#include <Wire.h>          // 包含Wire库，用于I2C通信
-
-// BH1750相关引脚定义
-#define BH1750_SDA 4    // BH1750的SDA引脚
-#define BH1750_SCL 5    // BH1750的SCL引脚
+#include "lightsensor.h"  // 包含对应的头文件
 
 // 创建BH1750专用I2C实例
 TwoWire I2C_BH1750 = TwoWire(1);  // BH1750使用的I2C，使用第二个I2C控制器
@@ -79,39 +74,31 @@ float readBH1750() {
 }
 
 /**
- * @brief HomeSpan光照传感器服务类
- * @details 实现了HomeKit光照传感器服务，定期读取光照数据并更新HomeKit特征值
+ * @brief DEV_LightSensor构造函数实现
+ * @details 初始化光照传感器服务
  */
-struct DEV_LightSensor : Service::LightSensor {
-    SpanCharacteristic *lightLevel;          // 光照级别特征
-    unsigned long lastReadTime = 0;          // 上次读取时间，用于控制读取频率
+DEV_LightSensor::DEV_LightSensor() : Service::LightSensor() {
+    lightLevel = new Characteristic::CurrentAmbientLightLevel(0.0);  // 创建光照级别特征
+    lightLevel->setRange(0, 100000);     // 设置范围，支持0-100000 lux
+}
 
-    /**
-     * @brief 构造函数，初始化光照传感器服务
-     */
-    DEV_LightSensor() : Service::LightSensor() {
-        lightLevel = new Characteristic::CurrentAmbientLightLevel(0.0);  // 创建光照级别特征
-        lightLevel->setRange(0, 100000);     // 设置范围，支持0-100000 lux
-    }
-
-    /**
-     * @brief HomeSpan循环函数，定期更新光照数据
-     * @details 每秒读取一次光照数据，并在数值变化时更新HomeKit特征值
-     */
-    void loop() {
-        if(!bh1750_ok) return;  // 如果传感器未就绪，直接返回
-        
-        // 每1秒读取一次，避免过于频繁地读取影响性能
-        unsigned long currentTime = millis();
-        if(currentTime - lastReadTime >= 1000) {
-            float lux = readBH1750();  // 读取光照强度
-            if(lux >= 0) {  // 只处理有效值（非错误返回）
-                if(lux != lightLevel->getVal()) {
-                    lightLevel->setVal(lux);      // 更新HomeKit特征值
-                    ::lightLevel = lux;           // 更新全局变量，用于OLED显示等
-                }
+/**
+ * @brief DEV_LightSensor loop函数实现
+ * @details 每秒读取一次光照数据，并在数值变化时更新HomeKit特征值
+ */
+void DEV_LightSensor::loop() {
+    if(!bh1750_ok) return;  // 如果传感器未就绪，直接返回
+    
+    // 每1秒读取一次，避免过于频繁地读取影响性能
+    unsigned long currentTime = millis();
+    if(currentTime - lastReadTime >= 1000) {
+        float lux = readBH1750();  // 读取光照强度
+        if(lux >= 0) {  // 只处理有效值（非错误返回）
+            if(lux != lightLevel->getVal()) {
+                lightLevel->setVal(lux);      // 更新HomeKit特征值
+                ::lightLevel = lux;           // 更新全局变量，用于OLED显示等
             }
-            lastReadTime = currentTime; // 更新最后读取时间
         }
+        lastReadTime = currentTime; // 更新最后读取时间
     }
-};
+}
