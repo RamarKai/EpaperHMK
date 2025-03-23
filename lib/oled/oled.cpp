@@ -12,12 +12,17 @@ TwoWire I2C_OLED = TwoWire(0);  // OLED使用的I2C，使用第一个I2C控制�
 // 创建OLED显示对象
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &I2C_OLED, OLED_RESET);  // OLED显示屏对象
 
+// 页面相关变量
+DisplayPage currentPage = SENSOR_PAGE;  // 当前显示页面，默认为传感器页面
+unsigned long lastPageSwitchTime = 0;   // 上次页面切换时间
+
 // 外部引用的变量声明，这些变量定义在其他模块中
 extern float lightLevel;  // 光照强度，定义在lightsensor.cpp
 extern bool bh1750_ok;    // BH1750传感器状态，定义在lightsensor.cpp
 extern int gasLevel;      // 气体浓度，定义在mq2sensor.cpp
 extern bool ledState;     // LED状态，定义在ws2812.cpp或main.cpp
 extern CRGB currentColor; // 当前LED颜色，定义在ws2812.cpp或main.cpp
+extern WeatherData currentWeather; // 当前天气数据，定义在weather.cpp
 
 /**
  * @brief 初始化OLED显示屏
@@ -38,14 +43,37 @@ bool initOLED() {
     display.clearDisplay();
     display.display();
     Serial.println("OLED initialized");
+    
+    // 初始化页面切换时间
+    lastPageSwitchTime = millis();
+    
     return true;  // 初始化成功，返回true
 }
 
 /**
  * @brief 更新OLED显示内容
- * @details 在OLED上显示传感器数据和LED状态
+ * @details 根据当前页面更新OLED显示
  */
 void updateDisplay() {
+    // 切换页面
+    switchDisplayPage();
+    
+    // 根据当前页面选择显示内容
+    switch(currentPage) {
+        case SENSOR_PAGE:
+            updateSensorPage();
+            break;
+        case WEATHER_PAGE:
+            updateWeatherPage(currentWeather);
+            break;
+    }
+}
+
+/**
+ * @brief 更新传感器页面
+ * @details 在OLED上显示传感器数据和LED状态
+ */
+void updateSensorPage() {
     // 清空显示缓冲区
     display.clearDisplay();
     // 设置文本大小为1
@@ -53,8 +81,13 @@ void updateDisplay() {
     // 设置文本颜色为白色
     display.setTextColor(SSD1306_WHITE);
     
+    // 显示页面标题
+    display.setCursor(0, 0);
+    display.println("-- SENSORS DATA --");
+    display.drawLine(0, 9, 128, 9, SSD1306_WHITE);
+    
     // 显示光照强度
-    display.setCursor(0, 0);  // 设置光照数据显示位置
+    display.setCursor(0, 12);  // 设置光照数据显示位置
     display.print("Light: ");
     if(bh1750_ok) {
         // 如果BH1750传感器正常工作，显示光照强度值
@@ -66,12 +99,12 @@ void updateDisplay() {
     }
     
     // 显示气体浓度
-    display.setCursor(0, 16);  // 设置气体数据显示位置
+    display.setCursor(0, 24);  // 设置气体数据显示位置
     display.print("Gas: ");
     display.println(gasLevel);  // 显示气体传感器读数
     
     // 显示LED状态
-    display.setCursor(0, 32);  // 设置LED状态显示位置
+    display.setCursor(0, 36);  // 设置LED状态显示位置
     display.print("LED: ");
     if(ledState) {
         // 如果LED开启，显示其RGB颜色值
@@ -87,8 +120,98 @@ void updateDisplay() {
         display.println("OFF");
     }
     
+    // 显示页面指示器
+    display.setCursor(0, 56);
+    display.print("Page: 1/2");
+    
     // 将缓冲区内容发送到OLED显示
     display.display();
+}
+
+/**
+ * @brief 更新天气页面
+ * @details 在OLED上显示天气数据
+ * @param weather 天气数据结构体
+ */
+void updateWeatherPage(const WeatherData &weather) {
+    // 清空显示缓冲区
+    display.clearDisplay();
+    // 设置文本颜色为白色
+    display.setTextColor(SSD1306_WHITE);
+    
+    // 显示页面标题
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.println("-- WEATHER DATA --");
+    display.drawLine(0, 9, 128, 9, SSD1306_WHITE);
+    
+    if(weather.is_valid) {
+        // 显示城市
+        display.setCursor(0, 12);
+        display.print("City: ");
+        display.println(weather.city);
+        
+        // 显示天气状况
+        display.setCursor(0, 22);
+        display.print("Weather: ");
+        display.println(weather.weather);
+        
+        // 显示温度
+        display.setCursor(0, 32);
+        display.print("Temp: ");
+        display.print(weather.temperature);
+        display.println(" C");
+        
+        // 显示湿度
+        display.setCursor(0, 42);
+        display.print("Humidity: ");
+        display.print(weather.humidity);
+        display.println("%");
+    } else {
+        // 如果没有有效的天气数据
+        display.setTextSize(1);
+        display.setCursor(0, 24);
+        display.println("No valid weather data");
+        display.setCursor(0, 36);
+        display.println("Please check WiFi");
+        display.setCursor(0, 46);
+        display.println("and API key settings");
+    }
+    
+    // 显示页面指示器
+    display.setCursor(0, 56);
+    display.print("Page: 2/2");
+    
+    // 将缓冲区内容发送到OLED显示
+    display.display();
+}
+
+/**
+ * @brief 切换显示页面
+ * @details 根据当前页面和时间间隔切换显示页面
+ * @return 是否进行了页面切换
+ */
+bool switchDisplayPage() {
+    unsigned long currentTime = millis();
+    
+    // 检查是否需要切换页面
+    if(currentTime - lastPageSwitchTime >= PAGE_SWITCH_INTERVAL) {
+        // 切换到下一个页面
+        switch(currentPage) {
+            case SENSOR_PAGE:
+                currentPage = WEATHER_PAGE;
+                break;
+            case WEATHER_PAGE:
+                currentPage = SENSOR_PAGE;
+                break;
+        }
+        
+        // 更新页面切换时间
+        lastPageSwitchTime = currentTime;
+        return true;
+    }
+    
+    return false;
 }
 
 /**
