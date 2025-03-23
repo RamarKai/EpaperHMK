@@ -1,22 +1,30 @@
 #include "HomeSpan.h"
-#include "PinConfig.h"
-#include "OLED_Display.h"
-#include "BH1750_Sensor.h"
-#include "MQ2_Sensor.h"
-#include "WS2812B_LED.h"
-#include "LED_Service.h"
-#include "LightSensor_Service.h"
-#include "AirQuality_Service.h"
+#include <Wire.h>
+#include <Adafruit_SSD1306.h>
+#include <FastLED.h>
+
+// OLED显示屏配置
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
+#define SCREEN_ADDRESS 0x3C
+
+// 引脚定义
+#define LED_PIN 2        // WS2812B LED连接引脚
+#define NUM_LEDS 1      // WS2812B LED数量
+#define MQ2_PIN 34      // MQ2气体传感器模拟输入引脚
+#define OLED_SDA 21     // OLED的SDA引脚
+#define OLED_SCL 22     // OLED的SCL引脚
+#define BH1750_SDA 4    // BH1750的SDA引脚
+#define BH1750_SCL 5    // BH1750的SCL引脚
 
 // 创建两个I2C实例
 TwoWire I2C_OLED = TwoWire(0);    // OLED使用的I2C
 TwoWire I2C_BH1750 = TwoWire(1);  // BH1750使用的I2C
 
 // 创建对象
-OLED_Display display;
-BH1750_Sensor lightSensor;
-MQ2_Sensor gasSensor;
-WS2812B_LED led;
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &I2C_OLED, OLED_RESET); // OLED显示屏对象
+CRGB leds[NUM_LEDS];    // WS2812B LED对象
 
 // 全局变量
 float lightLevel = 0;    // 光照强度
@@ -53,7 +61,7 @@ struct DEV_WS2812B : Service::LightBulb {
     SpanCharacteristic *hue;                // 色调特征
     SpanCharacteristic *saturation;         // 饱和度特征
     
-    DEV_WS2812B(WS2812B_LED& led) : Service::LightBulb() {
+    DEV_WS2812B() : Service::LightBulb() {
         power = new Characteristic::On();                    // 创建开关特征
         brightness = new Characteristic::Brightness(100);    // 创建亮度特征
         brightness->setRange(0, 100);                       // 设置亮度范围
@@ -78,7 +86,9 @@ struct DEV_WS2812B : Service::LightBulb {
         }
         
         // 更新LED显示
-        led.setColor(currentColor);
+        leds[0] = currentColor;
+        FastLED.show();
+        
         ledState = isOn;  // 更新全局状态
         return(true);
     }
@@ -89,7 +99,7 @@ struct DEV_LightSensor : Service::LightSensor {
     SpanCharacteristic *lightLevel;          // 光照级别特征
     unsigned long lastReadTime = 0;          // 上次读取时间
 
-    DEV_LightSensor(BH1750_Sensor& sensor) : Service::LightSensor() {
+    DEV_LightSensor() : Service::LightSensor() {
         lightLevel = new Characteristic::CurrentAmbientLightLevel(0.0);  // 创建光照级别特征
         lightLevel->setRange(0, 100000);     // 设置范围
     }
@@ -116,7 +126,7 @@ struct DEV_LightSensor : Service::LightSensor {
 struct DEV_AirQualitySensor : Service::AirQualitySensor {
     SpanCharacteristic *airQuality;          // 空气质量特征
 
-    DEV_AirQualitySensor(MQ2_Sensor& sensor) : Service::AirQualitySensor() {
+    DEV_AirQualitySensor() : Service::AirQualitySensor() {
         airQuality = new Characteristic::AirQuality(0);  // 创建空气质量特征
     }
 
@@ -126,7 +136,7 @@ struct DEV_AirQualitySensor : Service::AirQualitySensor {
         
         // 根据气体浓度确定空气质量等级
         int quality;
-        if(reading < 1000) quality = 1;      // EXCELLENT
+        if(reading < 1500) quality = 1;      // EXCELLENT
         else if(reading < 2000) quality = 2;  // GOOD
         else if(reading < 3000) quality = 3;  // FAIR
         else if(reading < 4000) quality = 4;  // INFERIOR
@@ -136,6 +146,45 @@ struct DEV_AirQualitySensor : Service::AirQualitySensor {
             airQuality->setVal(quality);      // 更新特征值
     }
 };
+
+// 更新OLED显示
+void updateDisplay() {
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+    
+    // 显示光照强度
+    display.setCursor(0,0);
+    display.print("Light: ");
+    if(bh1750_ok) {
+        display.print(lightLevel);
+        display.println(" lx");
+    } else {
+        display.println("Error");
+    }
+    
+    // 显示气体浓度
+    display.setCursor(0,16);
+    display.print("Gas: ");
+    display.println(gasLevel);
+    
+    // 显示LED状态
+    display.setCursor(0,32);
+    display.print("LED: ");
+    if(ledState) {
+        display.print("ON (RGB:");
+        display.print(currentColor.r);
+        display.print(",");
+        display.print(currentColor.g);
+        display.print(",");
+        display.print(currentColor.b);
+        display.println(")");
+    } else {
+        display.println("OFF");
+    }
+    
+    display.display();
+}
 
 void setup() {
     // 初始化串口通信
@@ -147,27 +196,37 @@ void setup() {
     I2C_BH1750.begin(BH1750_SDA, BH1750_SCL);
     
     // 初始化OLED
-    if(!display.begin()) {
+    if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
         Serial.println(F("SSD1306 allocation failed"));
         for(;;);
     }
+    display.clearDisplay();
+    display.display();
     Serial.println("OLED initialized");
     
     // 初始化BH1750
-    if(lightSensor.begin()) {
-        Serial.println("BH1750 initialized successfully");
-        bh1750_ok = true;
+    I2C_BH1750.beginTransmission(0x23);
+    I2C_BH1750.write(0x01);  // 上电
+    if(I2C_BH1750.endTransmission() == 0) {
+        delay(10);
+        I2C_BH1750.beginTransmission(0x23);
+        I2C_BH1750.write(0x10);  // 设置连续高分辨率模式
+        if(I2C_BH1750.endTransmission() == 0) {
+            Serial.println("BH1750 initialized successfully");
+            bh1750_ok = true;
+        } else {
+            Serial.println("Error configuring BH1750");
+            bh1750_ok = false;
+        }
     } else {
         Serial.println("Error initializing BH1750");
         bh1750_ok = false;
     }
     
-    // 初始化MQ2
-    gasSensor.begin();
-    Serial.println("MQ2 initialized");
-    
     // 初始化WS2812B
-    led.begin();
+    FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, NUM_LEDS);
+    FastLED.setBrightness(255);
+    FastLED.show();
     Serial.println("WS2812B initialized");
     
     // 初始化GPIO
@@ -186,13 +245,13 @@ void setup() {
             new Characteristic::Model("ESP32");          
             new Characteristic::FirmwareRevision("1.0"); 
             
-        new DEV_WS2812B(led);                  // 添加WS2812B LED服务
-        new DEV_LightSensor(lightSensor);      // 添加光照传感器服务
-        new DEV_AirQualitySensor(gasSensor);   // 添加空气质量传感器服务
+        new DEV_WS2812B();                  // 添加WS2812B LED服务
+        new DEV_LightSensor();              // 添加光照传感器服务
+        new DEV_AirQualitySensor();         // 添加空气质量传感器服务
 }
 
 void loop() {
     homeSpan.poll();                        // HomeSpan主循环
-    display.updateDisplay(lightLevel, gasLevel, ledState, currentColor.r, currentColor.g, currentColor.b);    // 更新显示
+    updateDisplay();                        // 更新显示
     delay(100);                            // 短暂延时以避免过于频繁刷新
 }
