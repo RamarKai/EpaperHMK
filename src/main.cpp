@@ -186,9 +186,9 @@ void setup() {
             new Characteristic::Model("ESP32");          
             new Characteristic::FirmwareRevision("1.0"); 
             
-        new DEV_WS2812B();                  // 添加WS2812B LED服务
-        new DEV_LightSensor();              // 添加光照传感器服务
-        new DEV_AirQualitySensor();         // 添加空气质量传感器服务
+        new DEV_WS2812B(led);                  // 添加WS2812B LED服务
+        new DEV_LightSensor(lightSensor);      // 添加光照传感器服务
+        new DEV_AirQualitySensor(gasSensor);   // 添加空气质量传感器服务
 }
 
 void loop() {
