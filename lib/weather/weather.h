@@ -13,14 +13,14 @@
 #include <ArduinoJson.h>
 
 // 心知天气API密钥
-#define WEATHER_API_KEY ""    // 填入您的心知天气API密钥
-#define WEATHER_API_UID ""    // 填入您的心知天气用户ID
+#define WEATHER_API_KEY "SWL_pIpiyT3moGyF5"    // 填入您的心知天气API密钥
+//#define WEATHER_API_UID ""    // 填入您的心知天气用户ID
 
 // 天气接口请求间隔(毫秒) - 默认10分钟
 #define WEATHER_UPDATE_INTERVAL 600000
 
 // 城市代码或经纬度坐标，默认为北京
-#define WEATHER_LOCATION "beijing"
+#define WEATHER_LOCATION "fujianfuzhou"
 
 // 天气数据结构体
 struct WeatherData {

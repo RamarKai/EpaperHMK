@@ -27,9 +27,10 @@ const unsigned long displayUpdateInterval = 100; // 显示更新间隔为100毫�
 unsigned long lastWeatherUpdate = 0;
 const unsigned long weatherUpdateInterval = 300000; // 天气更新间隔为5分钟(300000ms)
 
-// WiFi凭据
-const char* ssid = "YOUR_WIFI_SSID";       // 请替换为您的WiFi名称
-const char* password = "YOUR_WIFI_PASSWORD"; // 请替换为您的WiFi密码
+// 天气服务状态变量
+bool weatherServiceInitialized = false;  // 天气服务是否初始化
+bool weatherInitialUpdateDone = false;   // 是否已经进行了首次天气数据更新
+bool wifiPreviouslyConnected = false;    // 上一次WiFi是否已连接
 
 void setup() {
     // 初始化串口通信
@@ -45,24 +46,6 @@ void setup() {
     // 显示启动画面
     showStartupScreen();
     
-    // 连接WiFi
-    connectToWiFi();
-    
-    // 初始化天气服务
-    if (initWeatherService()) {
-        Serial.println("Weather service initialized");
-        // 首次获取天气数据
-        if (updateWeatherData()) {
-            Serial.println("Initial weather data updated successfully");
-        } else {
-            Serial.println("Failed to get initial weather data");
-        }
-    } else {
-        Serial.println("Weather service initialization failed");
-        showError("Weather service init failed");
-        delay(2000);
-    }
-    
     // 初始化BH1750光照传感器
     initBH1750();
     
@@ -72,7 +55,7 @@ void setup() {
     // 初始化WS2812B LED
     initWS2812B();
     
-    // 初始化HomeSpan
+    // 初始化HomeSpan - WiFi连接将在homeSpan.poll()时进行
     homeSpan.begin(Category::Lighting, "ESP32 Sensors");
 
     // 创建主配件
@@ -88,10 +71,25 @@ void setup() {
         new DEV_WS2812B();                  // 添加WS2812B LED服务
         new DEV_LightSensor();              // 添加光照传感器服务
         new DEV_AirQualitySensor();         // 添加空气质量传感器服务
+    
+    // 显示等待WiFi连接的提示
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(0, 0);
+    display.println("HomeSpan Starting...");
+    display.setCursor(0, 16);
+    display.println("Waiting for WiFi...");
+    display.display();
+    
+    // 初始化更新时间
+    lastDisplayUpdate = millis();
+    lastWeatherUpdate = millis();
 }
 
 void loop() {
-    homeSpan.poll();                        // HomeSpan主循环，每次循环都执行
+    // HomeSpan主循环，WiFi连接和HomeKit通信
+    homeSpan.poll();
     
     unsigned long currentMillis = millis();
     
@@ -101,58 +99,72 @@ void loop() {
         lastDisplayUpdate = currentMillis;  // 更新上次显示时间
     }
     
-    // 非阻塞方式更新天气数据 - 每5分钟更新一次
-    if(currentMillis - lastWeatherUpdate >= weatherUpdateInterval) {
-        Serial.println("Updating weather data...");
-        if(checkAndUpdateWeather()) {
-            Serial.println("Weather data updated successfully");
-        }
-        lastWeatherUpdate = currentMillis;
-    }
-}
-
-/**
- * 连接到WiFi网络
- */
-void connectToWiFi() {
-    Serial.println("Connecting to WiFi...");
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(SSD1306_WHITE);
-    display.setCursor(0, 0);
-    display.println("Connecting to WiFi:");
-    display.setCursor(0, 16);
-    display.println(ssid);
-    display.display();
+    // 检查WiFi连接状态
+    bool wifiConnected = (WiFi.status() == WL_CONNECTED);
     
-    WiFi.begin(ssid, password);
-    
-    // 等待连接
-    int attemptCount = 0;
-    while (WiFi.status() != WL_CONNECTED && attemptCount < 20) {
-        delay(500);
-        Serial.print(".");
-        display.print(".");
-        display.display();
-        attemptCount++;
-    }
-    
-    if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("\nWiFi connected");
+    // WiFi连接状态变化检测 - 从断开到连接
+    if (wifiConnected && !wifiPreviouslyConnected) {
+        Serial.println("WiFi connected!");
         Serial.print("IP address: ");
         Serial.println(WiFi.localIP());
         
+        // 显示WiFi连接成功信息
         display.clearDisplay();
+        display.setTextSize(1);
+        display.setTextColor(SSD1306_WHITE);
         display.setCursor(0, 0);
         display.println("WiFi Connected!");
         display.setCursor(0, 16);
         display.print("IP: ");
         display.println(WiFi.localIP());
         display.display();
-        delay(2000);
-    } else {
-        Serial.println("\nWiFi connection failed");
-        showError("WiFi connection failed");
-        delay(2000);
+        delay(2000); // 显示2秒
+        
+        // 初始化天气服务 - 只在首次连接WiFi时进行
+        if (!weatherServiceInitialized) {
+            if (initWeatherService()) {
+                Serial.println("Weather service initialized");
+                weatherServiceInitialized = true;
+                
+                // 首次更新天气数据在下一个if块中处理
+            } else {
+                Serial.println("Weather service initialization failed");
+                showError("Weather service init failed");
+                delay(2000);
+            }
+        }
+    }
+    // WiFi连接状态变化检测 - 从连接到断开
+    else if (!wifiConnected && wifiPreviouslyConnected) {
+        Serial.println("WiFi disconnected!");
+    }
+    
+    // 更新上一次WiFi状态
+    wifiPreviouslyConnected = wifiConnected;
+    
+    // 如果WiFi已连接且天气服务已初始化
+    if (wifiConnected && weatherServiceInitialized) {
+        // 首次天气数据更新 - 只在天气服务初始化后执行一次
+        if (!weatherInitialUpdateDone) {
+            Serial.println("Performing initial weather data update...");
+            if (updateWeatherData()) {
+                Serial.println("Initial weather data updated successfully");
+                weatherInitialUpdateDone = true;
+            } else {
+                Serial.println("Failed to get initial weather data");
+                // 稍后将再次尝试更新
+            }
+            lastWeatherUpdate = currentMillis;
+        }
+        // 定期天气数据更新 - 每5分钟更新一次
+        else if (currentMillis - lastWeatherUpdate >= weatherUpdateInterval) {
+            Serial.println("Updating weather data...");
+            if (checkAndUpdateWeather()) {
+                Serial.println("Weather data updated successfully");
+            } else {
+                Serial.println("Weather data update failed");
+            }
+            lastWeatherUpdate = currentMillis;
+        }
     }
 }

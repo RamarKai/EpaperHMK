@@ -18,7 +18,7 @@ const char* WEATHER_API_ENDPOINT = "https://api.seniverse.com/v3/weather/now.jso
  * @return 初始化是否成功
  */
 bool initWeatherService() {
-    if (WEATHER_API_KEY[0] == '\0' || WEATHER_API_UID[0] == '\0') {
+    if (WEATHER_API_KEY[0] == '\0') { //|| WEATHER_API_UID[0] == '\0') {
         Serial.println("Weather API key or UID not set!");
         return false;
     }
