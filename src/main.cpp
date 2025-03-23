@@ -10,7 +10,7 @@
 // 包含OLED显示屏头文件
 #include "../lib/oled.cpp"
 // 包含WS2812B LED头文件
-#include "../lib/ws2812.cpp"
+#include "ws2812.h"
 
 // WS2812B LED相关代码已移至ws2812.cpp
 // OLED相关定义已移至oled.cpp
