@@ -4,6 +4,7 @@
 #include "oled.h"                 // 包含OLED显示屏模块
 #include "ws2812.h"               // 包含WS2812B LED控制模块
 #include "weather.h"              // 包含天气服务模块
+#include "command.h"              // 包含命令处理模块
 
 unsigned long lastDisplayUpdate = 0;           // 记录上次显示更新的时间
 const unsigned long displayUpdateInterval = 100;  // 设置显示更新的时间间隔为100毫秒
@@ -31,6 +32,9 @@ void setup() {                    // Arduino程序的初始化函数
     initMQ2Sensor();              // 初始化MQ2气体传感器
     
     initWS2812B();                // 初始化WS2812B LED
+    
+    // 初始化串口2用于命令通信
+    initSerial2();                // 初始化串口2
     
     homeSpan.begin(Category::Lighting, "ESP32 Sensors");  // 初始化HomeSpan，设置设备类别和名称
 
@@ -62,6 +66,9 @@ void setup() {                    // Arduino程序的初始化函数
 
 void loop() {                    // Arduino程序的主循环函数
     homeSpan.poll();             // 处理HomeSpan相关的事件和请求
+    
+    // 处理串口2接收到的命令
+    handleSerial2Commands();     // 检查并处理串口2接收到的命令
     
     unsigned long currentMillis = millis();  // 获取当前时间
     
