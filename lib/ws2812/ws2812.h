@@ -12,11 +12,29 @@ extern CRGB leds[NUM_LEDS];     // 声明外部LED数组，用于存储每个LED
 extern bool ledState;           // 声明外部变量ledState，表示LED开关状态
 extern CRGB currentColor;       // 声明外部变量currentColor，存储当前LED的颜色
 
+// 前向声明
+struct DEV_WS2812B;
+
+// LED设备实例，用于在其他模块中访问和更新HomeKit状态
+extern DEV_WS2812B* ws2812Device;
+
 void initWS2812B();             // 声明初始化WS2812B LED的函数
 
 void setLEDColor(CRGB color, bool update = true);  // 声明设置LED颜色的函数，带有可选的立即更新参数
 
 void setLEDState(bool on, bool update = true);     // 声明设置LED开关状态的函数，带有可选的立即更新参数
+
+// 声明与HomeKit同步LED状态的函数
+void syncLEDWithHomeKit(bool on);
+
+// 声明增加LED亮度的函数
+void increaseLEDBrightness(float percentage = 20.0);
+
+// 声明减少LED亮度的函数
+void decreaseLEDBrightness(float percentage = 20.0);
+
+// 声明与HomeKit同步LED亮度的函数
+void syncLEDBrightnessWithHomeKit(float brightness);
 
 struct DEV_WS2812B : Service::LightBulb {  // 定义WS2812B服务结构体，继承自HomeSpan的LightBulb服务
     SpanCharacteristic *power;             // 指向灯泡电源特性的指针

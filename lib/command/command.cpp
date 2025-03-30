@@ -158,6 +158,7 @@ void processSerial2Command() {
     if (serial2CmdIndex == 2 && serial2CmdBuffer[0] == 'o' && serial2CmdBuffer[1] == 'n') {
       // 命令为"on"，打开WS2812灯珠
       setLEDState(true);  // 调用WS2812控制函数打开LED
+      syncLEDWithHomeKit(true);  // 同步更新HomeKit状态为开启
       Serial.println("Serial2 command: Turn ON LED");
       
       // 发送响应
@@ -167,10 +168,30 @@ void processSerial2Command() {
     else if (serial2CmdIndex == 3 && serial2CmdBuffer[0] == 'o' && serial2CmdBuffer[1] == 'f' && serial2CmdBuffer[2] == 'f') {
       // 命令为"off"，关闭WS2812灯珠
       setLEDState(false);  // 调用WS2812控制函数关闭LED
+      syncLEDWithHomeKit(false);  // 同步更新HomeKit状态为关闭
       Serial.println("Serial2 command: Turn OFF LED");
       
       // 发送响应
       sendSerial2Response("LED OFF");
+    }
+    // 检查是否是ASCII命令 "up"
+    else if (serial2CmdIndex == 2 && serial2CmdBuffer[0] == 'u' && serial2CmdBuffer[1] == 'p') {
+      // 命令为"up"，增加LED亮度20%
+      increaseLEDBrightness(20.0);  // 调用增加亮度函数
+      Serial.println("Serial2 command: Increase brightness by 20%");
+      
+      // 发送响应
+      sendSerial2Response("Brightness UP 20%");
+    }
+    // 检查是否是ASCII命令 "down"
+    else if (serial2CmdIndex == 4 && serial2CmdBuffer[0] == 'd' && serial2CmdBuffer[1] == 'o' && 
+             serial2CmdBuffer[2] == 'w' && serial2CmdBuffer[3] == 'n') {
+      // 命令为"down"，减少LED亮度20%
+      decreaseLEDBrightness(20.0);  // 调用减少亮度函数
+      Serial.println("Serial2 command: Decrease brightness by 20%");
+      
+      // 发送响应
+      sendSerial2Response("Brightness DOWN 20%");
     }
     // 其他命令处理
     else {
