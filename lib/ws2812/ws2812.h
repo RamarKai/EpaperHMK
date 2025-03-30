@@ -36,6 +36,9 @@ void decreaseLEDBrightness(float percentage = 20.0);
 // 声明与HomeKit同步LED亮度的函数
 void syncLEDBrightnessWithHomeKit(float brightness);
 
+// 声明使用当前HomeKit的HSV值更新LED的函数
+void updateLEDWithCurrentHomeKitValues();
+
 struct DEV_WS2812B : Service::LightBulb {  // 定义WS2812B服务结构体，继承自HomeSpan的LightBulb服务
     SpanCharacteristic *power;             // 指向灯泡电源特性的指针
     SpanCharacteristic *brightness;        // 指向亮度特性的指针

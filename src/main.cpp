@@ -5,6 +5,7 @@
 #include "ws2812.h"               // 包含WS2812B LED控制模块
 #include "weather.h"              // 包含天气服务模块
 #include "command.h"              // 包含命令处理模块
+#include "time_manager.h"         // 包含时间管理模块
 
 unsigned long lastDisplayUpdate = 0;           // 记录上次显示更新的时间
 const unsigned long displayUpdateInterval = 100;  // 设置显示更新的时间间隔为100毫秒
@@ -15,6 +16,7 @@ const unsigned long weatherUpdateInterval = 300000;  // 设置天气数据更新
 bool weatherServiceInitialized = false;          // 标记天气服务是否已初始化
 bool weatherInitialUpdateDone = false;           // 标记是否已完成天气数据的首次更新
 bool wifiPreviouslyConnected = false;            // 记录上一次WiFi的连接状态
+bool timeManagerInitialized = false;            // 标记时间管理模块是否已初始化（改名以避免与time_manager.cpp中的变量冲突）
 
 void setup() {                    // Arduino程序的初始化函数
     Serial.begin(115200);         // 初始化串口通信，波特率设为115200
@@ -95,6 +97,17 @@ void loop() {                    // Arduino程序的主循环函数
         display.display();                   // 更新显示内容
         delay(2000);                         // 延迟2秒，让用户能看到WiFi连接信息
         
+        // 初始化时间管理模块
+        if (!timeManagerInitialized) {       // 如果时间模块尚未初始化
+            Serial.println("Initializing time manager...");
+            if (initTimeManager()) {         // 尝试初始化时间管理模块
+                Serial.println("Time manager initialized successfully");
+                timeManagerInitialized = true; // 标记时间模块已初始化
+            } else {
+                Serial.println("Time manager initialization failed");
+            }
+        }
+        
         if (!weatherServiceInitialized) {    // 如果天气服务尚未初始化
             if (initWeatherService()) {      // 尝试初始化天气服务
                 Serial.println("Weather service initialized");  // 如果成功，打印初始化成功信息
@@ -112,6 +125,11 @@ void loop() {                    // Arduino程序的主循环函数
     }
     
     wifiPreviouslyConnected = wifiConnected;  // 更新上一次WiFi连接状态
+    
+    // 更新时间管理模块
+    if (timeManagerInitialized) {
+        updateTimeManager();     // 定期更新和保存时间
+    }
     
     if (wifiConnected && weatherServiceInitialized) {  // 如果WiFi已连接且天气服务已初始化
         if (!weatherInitialUpdateDone) {    // 如果尚未完成首次天气数据更新

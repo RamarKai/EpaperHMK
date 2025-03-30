@@ -1,5 +1,6 @@
 #include "command.h"
 #include "ws2812.h"  // 包含WS2812控制相关头文件
+#include "time_manager.h"  // 包含时间管理模块头文件
 
 // 定义全局变量
 uint8_t cmdBuffer[MAX_CMD_LEN]; // 命令缓冲区
@@ -192,6 +193,16 @@ void processSerial2Command() {
       
       // 发送响应
       sendSerial2Response("Brightness DOWN 20%");
+    }
+    // 检查是否是ASCII命令 "time"
+    else if (serial2CmdIndex == 4 && serial2CmdBuffer[0] == 't' && serial2CmdBuffer[1] == 'i' &&
+             serial2CmdBuffer[2] == 'm' && serial2CmdBuffer[3] == 'e') {
+      // 命令为"time"，获取当前时间
+      Serial.println("Serial2 command: Get current time");
+      
+      // 获取当前时间并发送响应
+      const char* timeResponse = handleTimeCommand();
+      sendSerial2Response(timeResponse);
     }
     // 其他命令处理
     else {
