@@ -6,6 +6,8 @@
 #include "weather.h"              // 包含天气服务模块
 #include "command.h"              // 包含命令处理模块
 #include "time_manager.h"         // 包含时间管理模块
+#include "dht11.h"                // 包含DHT11传感器模块
+#include "dht11_homekit.h"        // 包含DHT11 HomeKit服务模块
 
 unsigned long lastDisplayUpdate = 0;           // 记录上次显示更新的时间
 const unsigned long displayUpdateInterval = 100;  // 设置显示更新的时间间隔为100毫秒
@@ -35,6 +37,12 @@ void setup() {                    // Arduino程序的初始化函数
     
     initWS2812B();                // 初始化WS2812B LED
     
+    if (!initDHT11()) {           // 初始化DHT11传感器，并检查是否成功
+        Serial.println("DHT11 initialization failed!");  // 如果初始化失败，打印错误信息
+        showError("DHT11 init failed");  // 在显示屏上显示错误信息
+        delay(2000);              // 延迟2秒，让用户能看到错误信息
+    }
+    
     // 初始化串口2用于命令通信
     initSerial2();                // 初始化串口2
     
@@ -52,6 +60,8 @@ void setup() {                    // Arduino程序的初始化函数
         new DEV_WS2812B();                   // 添加WS2812B LED服务
         new DEV_LightSensor();               // 添加光线传感器服务
         new DEV_AirQualitySensor();          // 添加空气质量传感器服务
+        new DEV_TemperatureSensor();         // 添加温度传感器服务
+        new DEV_HumiditySensor();            // 添加湿度传感器服务
     
     display.clearDisplay();                  // 清除显示屏内容
     display.setTextSize(1);                  // 设置文本大小为1
@@ -73,6 +83,12 @@ void loop() {                    // Arduino程序的主循环函数
     handleSerial2Commands();     // 检查并处理串口2接收到的命令
     
     unsigned long currentMillis = millis();  // 获取当前时间
+    
+    // 更新DHT11传感器数据
+    if (dht11_ok) {
+        readTemperature();       // 读取温度数据
+        readHumidity();          // 读取湿度数据
+    }
     
     if(currentMillis - lastDisplayUpdate >= displayUpdateInterval) {  // 检查是否到了更新显示的时间
         updateDisplay();         // 更新显示内容

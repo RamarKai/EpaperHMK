@@ -1,4 +1,5 @@
 #include "oled.h"                  // 包含OLED显示器的头文件
+#include "dht11.h"                  // 包含DHT11传感器的头文件
 
 TwoWire I2C_OLED = TwoWire(0);     // 创建TwoWire对象，指定使用ESP32的第一个I2C控制器
 
@@ -53,7 +54,26 @@ void updateSensorPage() {           // 更新传感器页面的函数
     display.println("-- SENSORS DATA --");  // 显示传感器数据标题
     display.drawLine(0, 9, 128, 9, SSD1306_WHITE);  // 绘制横线分隔标题区域
     
+    // 显示温度和湿度数据
     display.setCursor(0, 12);       // 设置光标位置到第二行
+    display.print("Temp: ");        // 显示"Temp:"文本
+    if(dht11_ok) {                  // 如果DHT11传感器正常
+        display.print(temperature); // 显示温度值
+        display.println(" C");      // 显示单位"C"
+    } else {                        // 如果DHT11传感器异常
+        display.println("Error");   // 显示"Error"
+    }
+    
+    display.setCursor(0, 22);       // 设置光标位置到第三行
+    display.print("Humidity: ");    // 显示"Humidity:"文本
+    if(dht11_ok) {                  // 如果DHT11传感器正常
+        display.print(humidity);    // 显示湿度值
+        display.println("%");       // 显示单位"%"
+    } else {                        // 如果DHT11传感器异常
+        display.println("Error");   // 显示"Error"
+    }
+    
+    display.setCursor(0, 32);       // 设置光标位置到第四行
     display.print("Light: ");       // 显示"Light:"文本
     if(bh1750_ok) {                 // 如果光线传感器正常
         display.print(lightLevel);  // 显示光照强度值
@@ -62,25 +82,11 @@ void updateSensorPage() {           // 更新传感器页面的函数
         display.println("Error");   // 显示"Error"
     }
     
-    display.setCursor(0, 24);       // 设置光标位置到第三行
+    display.setCursor(0, 42);       // 设置光标位置到第五行
     display.print("Gas: ");         // 显示"Gas:"文本
     display.println(gasLevel);      // 显示气体浓度值
     
-    display.setCursor(0, 36);       // 设置光标位置到第四行
-    display.print("LED: ");         // 显示"LED:"文本
-    if(ledState) {                  // 如果LED处于开启状态
-        display.print("ON (RGB:");  // 显示"ON (RGB:"文本
-        display.print(currentColor.r);  // 显示RGB的R值
-        display.print(",");         // 显示逗号分隔符
-        display.print(currentColor.g);  // 显示RGB的G值
-        display.print(",");         // 显示逗号分隔符
-        display.print(currentColor.b);  // 显示RGB的B值
-        display.println(")");       // 显示右括号
-    } else {                        // 如果LED处于关闭状态
-        display.println("OFF");     // 显示"OFF"
-    }
-    
-    display.setCursor(0, 56);       // 设置光标位置到显示屏底部
+    display.setCursor(0, 52);       // 设置光标位置到显示屏底部
     display.print("Page: 1/2");     // 显示页面指示器"Page: 1/2"
     
     display.display();              // 更新显示内容
