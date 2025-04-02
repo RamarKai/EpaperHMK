@@ -80,11 +80,58 @@ void handleSerial2Commands() {
 }
 
 // 通过串口2发送响应数据
+void sendSerial2Response(uint8_t responseCode, const char* additionalData) {
+    // 发送起始字节
+    Serial2.write(CMD_START_BYTE);
+    
+    // 发送响应码
+    Serial2.write(responseCode);
+    
+    // 如果有附加数据，则发送附加数据
+    if (additionalData != NULL) {
+        Serial2.print(additionalData);
+    }
+    
+    // 发送结束字节
+    Serial2.write(CMD_END_BYTE);
+    
+    // 记录发送的响应到调试串口
+    Serial.print("Response sent: 0x");
+    Serial.println(responseCode, HEX);
+}
+
+// 兼容旧版本的响应函数，将文本转为二进制响应
 void sendSerial2Response(const char* response) {
-    Serial2.write(CMD_START_BYTE);  // 发送起始字节
-    Serial2.print(response);        // 发送响应内容
-    Serial2.write(CMD_END_BYTE);    // 发送结束字节
-    Serial2.println();              // 额外的换行（方便阅读）
+    // 默认使用未知命令响应码
+    uint8_t respCode = RESP_UNKNOWN_CMD;
+    
+    // 根据响应内容确定适当的响应码
+    if (strstr(response, "LED ON")) {
+        respCode = RESP_LED_ON;
+    } else if (strstr(response, "LED OFF")) {
+        respCode = RESP_LED_OFF;
+    } else if (strstr(response, "Brightness UP")) {
+        respCode = RESP_BRIGHT_UP;
+    } else if (strstr(response, "Brightness DOWN")) {
+        respCode = RESP_BRIGHT_DOWN;
+    } else if (strstr(response, "Temperature")) {
+        respCode = RESP_TEMP;
+    } else if (strstr(response, "Humidity")) {
+        respCode = RESP_HUM;
+    } else if (strstr(response, "Light Level")) {
+        respCode = RESP_LIGHT;
+    } else if (strstr(response, "Air Quality")) {
+        respCode = RESP_AIR;
+    } else if (strstr(response, "Time")) {
+        respCode = RESP_TIME;
+    } else if (strstr(response, "Weather")) {
+        respCode = RESP_WEATHER;
+    } else if (strstr(response, "not available")) {
+        respCode = RESP_DATA_UNAVAIL;
+    }
+    
+    // 发送带有原始文本的二进制响应
+    sendSerial2Response(respCode, response);
 }
 
 // 处理接收到的命令
@@ -103,7 +150,7 @@ void processSerialCommand(const char* cmd, size_t len) {
     
     // 未找到匹配的命令处理函数
     Serial.println("Unknown command");
-    sendSerial2Response("Unknown Command");
+    sendSerial2Response(RESP_UNKNOWN_CMD);
 }
 
 // 处理LED相关命令
@@ -116,7 +163,7 @@ void handleLEDCommand(const char* cmd, size_t len) {
         Serial.println("Serial2 command: Turn ON LED");
         
         // 发送响应
-        sendSerial2Response("LED ON");
+        sendSerial2Response(RESP_LED_ON);
     }
     // 检查是否是 "off" 命令
     else if (strncmp(cmd, "off", len) == 0) {
@@ -126,7 +173,7 @@ void handleLEDCommand(const char* cmd, size_t len) {
         Serial.println("Serial2 command: Turn OFF LED");
         
         // 发送响应
-        sendSerial2Response("LED OFF");
+        sendSerial2Response(RESP_LED_OFF);
     }
     // 检查是否是 "up" 命令
     else if (strncmp(cmd, "up", len) == 0) {
@@ -135,7 +182,7 @@ void handleLEDCommand(const char* cmd, size_t len) {
         Serial.println("Serial2 command: Increase brightness by 20%");
         
         // 发送响应
-        sendSerial2Response("Brightness UP 20%");
+        sendSerial2Response(RESP_BRIGHT_UP);
     }
     // 检查是否是 "down" 命令
     else if (strncmp(cmd, "down", len) == 0) {
@@ -144,7 +191,7 @@ void handleLEDCommand(const char* cmd, size_t len) {
         Serial.println("Serial2 command: Decrease brightness by 20%");
         
         // 发送响应
-        sendSerial2Response("Brightness DOWN 20%");
+        sendSerial2Response(RESP_BRIGHT_DOWN);
     }
 }
 
@@ -157,7 +204,7 @@ void handleTimeWeatherCommand(const char* cmd, size_t len) {
         
         // 获取当前时间并发送响应
         const char* timeResponse = handleTimeCommand();
-        sendSerial2Response(timeResponse);
+        sendSerial2Response(RESP_TIME, timeResponse);
     }
     // 检查是否是 "weather" 命令
     else if (strncmp(cmd, "weather", len) == 0) {
@@ -176,10 +223,10 @@ void handleTimeWeatherCommand(const char* cmd, size_t len) {
                     weather.temperature, weather.humidity);
             
             // 发送天气响应
-            sendSerial2Response(weatherResponse);
+            sendSerial2Response(RESP_WEATHER, weatherResponse);
         } else {
             // 天气数据无效
-            sendSerial2Response("Weather data not available");
+            sendSerial2Response(RESP_DATA_UNAVAIL, "Weather data not available");
         }
     }
 }
@@ -198,13 +245,13 @@ void handleSensorCommand(const char* cmd, size_t len) {
         if (weather.is_valid) {
             // 格式化温度信息
             char tempResponse[64];
-            sprintf(tempResponse, "Temperature: %.1f°C", weather.temperature);
+            sprintf(tempResponse, "%.1f", weather.temperature);
             
             // 发送温度响应
-            sendSerial2Response(tempResponse);
+            sendSerial2Response(RESP_TEMP, tempResponse);
         } else {
             // 天气数据无效
-            sendSerial2Response("Temperature data not available");
+            sendSerial2Response(RESP_DATA_UNAVAIL, "Temperature data not available");
         }
     }
     // 检查是否是 "hum" 命令
@@ -219,13 +266,13 @@ void handleSensorCommand(const char* cmd, size_t len) {
         if (weather.is_valid) {
             // 格式化湿度信息
             char humResponse[64];
-            sprintf(humResponse, "Humidity: %d%%", weather.humidity);
+            sprintf(humResponse, "%d", weather.humidity);
             
             // 发送湿度响应
-            sendSerial2Response(humResponse);
+            sendSerial2Response(RESP_HUM, humResponse);
         } else {
             // 天气数据无效
-            sendSerial2Response("Humidity data not available");
+            sendSerial2Response(RESP_DATA_UNAVAIL, "Humidity data not available");
         }
     }
     // 检查是否是 "light" 命令
@@ -240,13 +287,13 @@ void handleSensorCommand(const char* cmd, size_t len) {
             
             // 格式化光照强度信息
             char lightResponse[64];
-            sprintf(lightResponse, "Light Level: %.2f lux", currentLight);
+            sprintf(lightResponse, "%.2f", currentLight);
             
             // 发送光照强度响应
-            sendSerial2Response(lightResponse);
+            sendSerial2Response(RESP_LIGHT, lightResponse);
         } else {
             // 光照传感器异常
-            sendSerial2Response("Light sensor not available");
+            sendSerial2Response(RESP_SENSOR_FAULT, "Light sensor not available");
         }
     }
     // 检查是否是 "air" 命令
@@ -273,10 +320,9 @@ void handleSensorCommand(const char* cmd, size_t len) {
         
         // 格式化空气质量信息
         char airResponse[64];
-        sprintf(airResponse, "Air Quality: Level %d (%s), Raw: %d", 
-                airQualityLevel, airQualityDesc, rawGasLevel);
+        sprintf(airResponse, "%d,%s,%d", airQualityLevel, airQualityDesc, rawGasLevel);
         
         // 发送空气质量响应
-        sendSerial2Response(airResponse);
+        sendSerial2Response(RESP_AIR, airResponse);
     }
 }

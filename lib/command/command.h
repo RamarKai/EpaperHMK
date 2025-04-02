@@ -13,6 +13,24 @@
 #define SERIAL2_TX_PIN 17    // 串口2的发送引脚
 #define SERIAL2_BAUD   9600  // 串口2的波特率
 
+// 定义响应码（简化的十六进制编码）
+#define RESP_LED_ON        0x01  // LED开启响应码
+#define RESP_LED_OFF       0x02  // LED关闭响应码
+#define RESP_BRIGHT_UP     0x03  // 亮度增加响应码
+#define RESP_BRIGHT_DOWN   0x04  // 亮度减少响应码
+
+#define RESP_TEMP          0x10  // 温度数据响应码
+#define RESP_HUM           0x11  // 湿度数据响应码
+#define RESP_LIGHT         0x12  // 光照数据响应码
+#define RESP_AIR           0x13  // 空气质量数据响应码
+
+#define RESP_TIME          0x20  // 时间数据响应码
+#define RESP_WEATHER       0x21  // 天气数据响应码
+
+#define RESP_UNKNOWN_CMD   0xE0  // 未知命令响应码
+#define RESP_DATA_UNAVAIL  0xE1  // 数据不可用响应码
+#define RESP_SENSOR_FAULT  0xE2  // 传感器故障响应码
+
 // 定义命令处理回调函数类型
 typedef void (*CommandHandlerCallback)(const char* cmd, size_t len);
 
@@ -39,11 +57,22 @@ void initSerial2();
 void handleSerial2Commands();
 
 /**
- * @brief 通过串口2发送响应数据
+ * @brief 通过串口2发送二进制响应数据
+ * 
+ * @param responseCode 要发送的响应码
+ * @param additionalData 可选的附加数据
+ * 
+ * 通过串口2发送带有起始字节、响应码、附加数据和结束字节的响应数据。
+ */
+void sendSerial2Response(uint8_t responseCode, const char* additionalData = NULL);
+
+/**
+ * @brief 通过串口2发送响应数据（兼容旧版本）
  * 
  * @param response 要发送的响应字符串
  * 
  * 通过串口2发送带有起始字节和结束字节的响应数据。
+ * 会自动将文本响应转换为适当的响应码。
  */
 void sendSerial2Response(const char* response);
 
