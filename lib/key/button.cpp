@@ -1,4 +1,4 @@
-#include "key.h" // 包含按键模块头文件
+#include "button.h" // 包含按键模块头文件
 
 // 定义全局变量
 ButtonState button1State = BUTTON_RELEASED; // 按钮1的当前状态，初始为释放状态

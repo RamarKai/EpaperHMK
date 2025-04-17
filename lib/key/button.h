@@ -1,5 +1,5 @@
-#ifndef KEY_H // 防止头文件被重复包含的宏定义开始
-#define KEY_H // 定义宏以标记该头文件已被包含
+#ifndef BUTTON_H // 防止头文件被重复包含的宏定义开始
+#define BUTTON_H // 定义宏以标记该头文件已被包含
 
 #include <Arduino.h> // 包含Arduino基础库
 
