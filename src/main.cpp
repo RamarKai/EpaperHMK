@@ -7,6 +7,7 @@
 #include "command.h"      // 包含命令处理模块
 #include "time_manager.h" // 包含时间管理模块
 #include "dht11.h"        // 包含DHT11传感器模块
+#include "epaper.h"       // 包含墨水屏模块
 
 unsigned long lastDisplayUpdate = 0;             // 记录上次显示更新的时间
 const unsigned long displayUpdateInterval = 100; // 设置显示更新的时间间隔为100毫秒
@@ -18,6 +19,7 @@ bool weatherServiceInitialized = false; // 标记天气服务是否已初始化
 bool weatherInitialUpdateDone = false;  // 标记是否已完成天气数据的首次更新
 bool wifiPreviouslyConnected = false;   // 记录上一次WiFi的连接状态
 bool timeManagerInitialized = false;    // 标记时间管理模块是否已初始化（改名以避免与time_manager.cpp中的变量冲突）
+bool epaperInitialized = false;         // 标记墨水屏是否初始化成功
 
 void setup()
 {                                        // Arduino程序的初始化函数
@@ -46,6 +48,19 @@ void setup()
         Serial.println("DHT11 initialization failed!"); // 如果初始化失败，打印错误信息
         showError("DHT11 init failed");                 // 在显示屏上显示错误信息
         delay(2000);                                    // 延迟2秒，让用户能看到错误信息
+    }
+
+    // 初始化墨水屏
+    epaperInitialized = initEPaper();
+    if (!epaperInitialized)
+    {
+        Serial.println("E-Paper initialization failed!"); // 如果初始化失败，打印错误信息
+        showError("E-Paper init failed");                 // 在OLED显示屏上显示错误信息
+        delay(2000);                                      // 延迟2秒，让用户能看到错误信息
+    }
+    else
+    {
+        Serial.println("E-Paper initialized successfully!"); // 打印初始化成功信息
     }
 
     // 初始化串口2用于命令通信
@@ -104,8 +119,14 @@ void loop()
 
     if (currentMillis - lastDisplayUpdate >= displayUpdateInterval)
     {                                      // 检查是否到了更新显示的时间
-        updateDisplay();                   // 更新显示内容
+        updateDisplay();                   // 更新OLED显示内容
         lastDisplayUpdate = currentMillis; // 更新上次显示更新的时间
+    }
+
+    // 如果墨水屏初始化成功，则更新墨水屏
+    if (epaperInitialized)
+    {
+        updateEPaper(); // 更新墨水屏显示内容
     }
 
     bool wifiConnected = (WiFi.status() == WL_CONNECTED); // 检查WiFi是否连接
@@ -116,7 +137,7 @@ void loop()
         Serial.print("IP address: ");      // 打印IP地址信息前缀
         Serial.println(WiFi.localIP());    // 打印获取到的IP地址
 
-        display.clearDisplay();              // 清除显示屏内容
+        display.clearDisplay();              // 清除OLED显示屏内容
         display.setTextSize(1);              // 设置文本大小为1
         display.setTextColor(SSD1306_WHITE); // 设置文本颜色为白色
         display.setCursor(0, 0);             // 设置光标位置到左上角
@@ -148,6 +169,13 @@ void loop()
             {                                                  // 尝试初始化天气服务
                 Serial.println("Weather service initialized"); // 如果成功，打印初始化成功信息
                 weatherServiceInitialized = true;              // 标记天气服务已初始化
+
+                // 如果墨水屏已初始化，连接WiFi成功后立即更新墨水屏一次，显示主页面
+                if (epaperInitialized)
+                {
+                    currentEpaperPage = MAIN_PAGE; // 设置为主页面
+                    drawMainPage();                // 绘制主页面
+                }
             }
             else
             {                                                            // 如果初始化失败
@@ -160,6 +188,23 @@ void loop()
     else if (!wifiConnected && wifiPreviouslyConnected)
     {                                         // 如果WiFi刚刚断开连接
         Serial.println("WiFi disconnected!"); // 打印WiFi已断开的消息
+
+        // 在WiFi断开连接时，如果墨水屏已初始化，显示断开连接信息
+        if (epaperInitialized)
+        {
+            display_epaper.setFullWindow();
+            display_epaper.firstPage();
+            do
+            {
+                display_epaper.fillScreen(GxEPD_WHITE);
+                u8g2_for_epaper.setFont(u8g2_font_inb16_mr);
+                u8g2_for_epaper.setCursor(50, 50);
+                u8g2_for_epaper.print("WiFi断开");
+                u8g2_for_epaper.setFont(u8g2_font_9x15_tf);
+                u8g2_for_epaper.setCursor(30, 80);
+                u8g2_for_epaper.print("正在等待重新连接...");
+            } while (display_epaper.nextPage());
+        }
     }
 
     wifiPreviouslyConnected = wifiConnected; // 更新上一次WiFi连接状态
@@ -179,6 +224,13 @@ void loop()
             {                                                                // 尝试更新天气数据
                 Serial.println("Initial weather data updated successfully"); // 如果成功，打印更新成功信息
                 weatherInitialUpdateDone = true;                             // 标记首次天气数据更新已完成
+
+                // 首次获取天气数据成功后，如果墨水屏已初始化，更新天气页面
+                if (epaperInitialized)
+                {
+                    currentEpaperPage = WEATHER_PAGE; // 设置为天气页面
+                    drawWeatherPage(currentWeather);  // 绘制天气页面
+                }
             }
             else
             {                                                         // 如果更新失败
@@ -192,6 +244,12 @@ void loop()
             if (checkAndUpdateWeather())
             {                                                        // 检查并尝试更新天气数据
                 Serial.println("Weather data updated successfully"); // 如果成功，打印更新成功信息
+
+                // 如果墨水屏已初始化，且当前页面是天气页面，立即更新天气信息
+                if (epaperInitialized && currentEpaperPage == WEATHER_PAGE)
+                {
+                    drawWeatherPage(currentWeather); // 绘制天气页面
+                }
             }
             else
             {                                                 // 如果更新失败
