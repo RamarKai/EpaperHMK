@@ -8,6 +8,7 @@
 #include "time_manager.h" // 包含时间管理模块
 #include "dht11.h"        // 包含DHT11传感器模块
 #include "epaper.h"       // 包含墨水屏模块
+#include "key.h"          // 包含按键模块
 
 unsigned long lastDisplayUpdate = 0;             // 记录上次显示更新的时间
 const unsigned long displayUpdateInterval = 100; // 设置显示更新的时间间隔为100毫秒
@@ -40,6 +41,9 @@ void setup()
     initMQ2Sensor(); // 初始化MQ2气体传感器
 
     initWS2812B(); // 初始化WS2812B LED
+
+    // 初始化按钮
+    initButtons(); // 初始化按钮模块
 
     // 初始化DHT11传感器并保存结果
     bool dht_init_success = initDHT11();
@@ -107,6 +111,20 @@ void loop()
 
     // 处理串口2接收到的命令
     handleSerial2Commands(); // 检查并处理串口2接收到的命令
+
+    // 更新按钮状态
+    updateButtonStates(); // 更新并检测按钮状态
+
+    // 检测按钮状态（不做任何处理，仅检测）
+    if (isButton1Pressed())
+    {
+        Serial.println("Button 1 is pressed"); // 打印按钮1被按下的信息
+    }
+
+    if (isButton2Pressed())
+    {
+        Serial.println("Button 2 is pressed"); // 打印按钮2被按下的信息
+    }
 
     unsigned long currentMillis = millis(); // 获取当前时间
 
