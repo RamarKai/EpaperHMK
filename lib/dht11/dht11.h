@@ -4,7 +4,7 @@
 #include <DHT.h>      // 包含DHT传感器库
 #include "HomeSpan.h" // 包含HomeSpan库
 
-#define DHT_PIN 4      // 定义DHT11传感器连接的GPIO引脚为GPIO4
+#define DHT_PIN 27     // 定义DHT11传感器连接的GPIO引脚为GPIO27（更改自GPIO4以避免与BH1750的SDA引脚冲突）
 #define DHT_TYPE DHT11 // 定义使用的传感器类型为DHT11
 
 // 初始化DHT11传感器
