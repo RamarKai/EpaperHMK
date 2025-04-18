@@ -94,7 +94,7 @@ void updateEPaper()
         case MAIN_PAGE:
             drawMainPage(); // 绘制主页面
             break;
-        case WEATHER_PAGE:
+        case EPAPER_WEATHER_PAGE:
             drawWeatherPage(currentWeather); // 绘制天气页面
             break;
         case SENSOR_DETAILS_PAGE:
@@ -289,9 +289,9 @@ void switchEpaperPage()
     switch (currentEpaperPage)
     {
     case MAIN_PAGE:
-        currentEpaperPage = WEATHER_PAGE;
+        currentEpaperPage = EPAPER_WEATHER_PAGE;
         break;
-    case WEATHER_PAGE:
+    case EPAPER_WEATHER_PAGE:
         currentEpaperPage = SENSOR_DETAILS_PAGE;
         break;
     case SENSOR_DETAILS_PAGE:

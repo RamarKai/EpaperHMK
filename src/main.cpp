@@ -8,7 +8,7 @@
 #include "time_manager.h" // 包含时间管理模块
 #include "dht11.h"        // 包含DHT11传感器模块
 #include "epaper.h"       // 包含墨水屏模块
-#include "key.h"          // 包含按键模块
+#include "button.h"       // 包含按键模块
 
 unsigned long lastDisplayUpdate = 0;             // 记录上次显示更新的时间
 const unsigned long displayUpdateInterval = 100; // 设置显示更新的时间间隔为100毫秒
@@ -246,8 +246,8 @@ void loop()
                 // 首次获取天气数据成功后，如果墨水屏已初始化，更新天气页面
                 if (epaperInitialized)
                 {
-                    currentEpaperPage = WEATHER_PAGE; // 设置为天气页面
-                    drawWeatherPage(currentWeather);  // 绘制天气页面
+                    currentEpaperPage = EPAPER_WEATHER_PAGE; // 设置为天气页面
+                    drawWeatherPage(currentWeather);         // 绘制天气页面
                 }
             }
             else
@@ -264,7 +264,7 @@ void loop()
                 Serial.println("Weather data updated successfully"); // 如果成功，打印更新成功信息
 
                 // 如果墨水屏已初始化，且当前页面是天气页面，立即更新天气信息
-                if (epaperInitialized && currentEpaperPage == WEATHER_PAGE)
+                if (epaperInitialized && currentEpaperPage == EPAPER_WEATHER_PAGE)
                 {
                     drawWeatherPage(currentWeather); // 绘制天气页面
                 }
