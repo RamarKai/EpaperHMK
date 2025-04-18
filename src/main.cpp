@@ -7,6 +7,7 @@
 #include "command.h"      // 包含命令处理模块
 #include "time_manager.h" // 包含时间管理模块
 #include "dht11.h"        // 包含DHT11传感器模块
+#include "epaper.h"       // 包含墨水屏显示模块
 
 unsigned long lastDisplayUpdate = 0;             // 记录上次显示更新的时间
 const unsigned long displayUpdateInterval = 100; // 设置显示更新的时间间隔为100毫秒
@@ -14,10 +15,14 @@ const unsigned long displayUpdateInterval = 100; // 设置显示更新的时间�
 unsigned long lastWeatherUpdate = 0;                // 记录上次天气数据更新的时间
 const unsigned long weatherUpdateInterval = 300000; // 设置天气数据更新的时间间隔为300000毫秒(5分钟)
 
+unsigned long lastEPaperUpdate = 0;               // 记录上次墨水屏更新的时间
+const unsigned long ePaperUpdateInterval = 30000; // 设置墨水屏更新的时间间隔为30000毫秒(30秒)
+
 bool weatherServiceInitialized = false; // 标记天气服务是否已初始化
 bool weatherInitialUpdateDone = false;  // 标记是否已完成天气数据的首次更新
 bool wifiPreviouslyConnected = false;   // 记录上一次WiFi的连接状态
 bool timeManagerInitialized = false;    // 标记时间管理模块是否已初始化（改名以避免与time_manager.cpp中的变量冲突）
+bool ePaperInitialized = false;         // 标记墨水屏是否已初始化
 
 void setup()
 {                                        // Arduino程序的初始化函数
@@ -46,6 +51,15 @@ void setup()
         Serial.println("DHT11 initialization failed!"); // 如果初始化失败，打印错误信息
         showError("DHT11 init failed");                 // 在显示屏上显示错误信息
         delay(2000);                                    // 延迟2秒，让用户能看到错误信息
+    }
+
+    // 初始化墨水屏并保存结果
+    ePaperInitialized = initEPaper();
+    if (!ePaperInitialized)
+    {
+        Serial.println("E-Paper initialization failed!"); // 如果初始化失败，打印错误信息
+        showError("E-Paper init failed");                 // 在OLED显示屏上显示错误信息
+        delay(2000);                                      // 延迟2秒，让用户能看到错误信息
     }
 
     // 初始化串口2用于命令通信
@@ -84,6 +98,7 @@ void setup()
 
     lastDisplayUpdate = millis(); // 记录当前时间为上次显示更新时间
     lastWeatherUpdate = millis(); // 记录当前时间为上次天气更新时间
+    lastEPaperUpdate = millis();  // 记录当前时间为上次墨水屏更新时间
 }
 
 void loop()
@@ -106,6 +121,13 @@ void loop()
     {                                      // 检查是否到了更新显示的时间
         updateDisplay();                   // 更新显示内容
         lastDisplayUpdate = currentMillis; // 更新上次显示更新的时间
+    }
+
+    // 更新墨水屏显示内容
+    if (ePaperInitialized && (currentMillis - lastEPaperUpdate >= ePaperUpdateInterval))
+    {
+        updateEPaper();                   // 更新墨水屏显示内容
+        lastEPaperUpdate = currentMillis; // 更新上次墨水屏更新的时间
     }
 
     bool wifiConnected = (WiFi.status() == WL_CONNECTED); // 检查WiFi是否连接
