@@ -5,6 +5,9 @@
 #include <Fonts/FreeMonoBold9pt7b.h>  // 包含字体库
 #include <Fonts/FreeSans9pt7b.h>      // 包含字体库
 #include <Fonts/FreeSansBold12pt7b.h> // 包含字体库
+#include <Fonts/FreeSansBold24pt7b.h> // 包含大字体库
+#include <Fonts/FreeSerif9pt7b.h>     // 包含衬线字体库
+#include <Fonts/FreeMonoBold12pt7b.h> // 包含等宽粗体字体库
 #include <U8g2_for_Adafruit_GFX.h>    // 包含U8g2字体支持库
 #include "weather.h"                  // 包含天气相关的头文件
 #include "dht11.h"                    // 包含DHT11传感器相关头文件
@@ -20,30 +23,19 @@
 #define EPAPER_SCK 18  // 墨水屏SPI时钟引脚
 #define EPAPER_MOSI 23 // 墨水屏SPI数据输出引脚
 
-// 定义页面类型枚举
-enum EPaperPage
-{
-    TIME_WEATHER_PAGE = 0,  // 时间和天气页面
-    EPAPER_SENSOR_PAGE = 1, // 传感器数据页面
-    PAGE_COUNT = 2          // 页面总数
-};
-
 // 墨水屏相关函数声明
 bool initEPaper();                          // 初始化墨水屏
 void updateEPaper();                        // 更新墨水屏显示内容
-void displayTimeWeatherPage();              // 显示时间和天气页面
-void displaySensorPage();                   // 显示传感器数据页面
-void switchEPaperPage();                    // 切换墨水屏显示页面
+void refreshDisplay();                      // 刷新显示内容
+void updateTimeDisplay();                   // 更新时间显示
 void deepSleepEPaper();                     // 使墨水屏进入深度睡眠模式
 void wakeupEPaper();                        // 唤醒墨水屏
 void showEPaperStartupScreen();             // 显示墨水屏启动画面
 void showEPaperError(const char *errorMsg); // 在墨水屏上显示错误信息
-void partialUpdateEPaper();                 // 局部更新墨水屏
 
 // 外部变量声明
 extern GxEPD2_BW<GxEPD2_290, GxEPD2_290::HEIGHT> display_epaper; // 声明外部墨水屏显示对象
 extern U8G2_FOR_ADAFRUIT_GFX u8g2Fonts;                          // 声明外部U8g2字体对象
-extern EPaperPage currentEPaperPage;                             // 声明外部当前墨水屏页面变量
 extern bool epaper_initialized;                                  // 声明外部墨水屏初始化状态
 
 #endif // 防止头文件被重复包含的宏定义结束
