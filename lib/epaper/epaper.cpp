@@ -7,6 +7,15 @@ U8G2_FOR_ADAFRUIT_GFX u8g2Fonts; // 创建U8g2字体对象，用于显示中文�
 
 bool epaper_initialized = false; // 墨水屏初始化状态标志
 
+// 定义自定义短语变量并设置默认值
+String customPhrase = "天行健,君子以自强不息";
+
+// 设置自定义短语
+void setCustomPhrase(const char *phrase)
+{
+    customPhrase = String(phrase);
+}
+
 // 初始化墨水屏
 bool initEPaper()
 {
@@ -53,6 +62,27 @@ void updateEPaper()
     refreshDisplay();
 }
 
+// 获取空气质量评级
+String getAirQualityRating(int value)
+{
+    if (value < 300)
+    {
+        return "优";
+    }
+    else if (value < 600)
+    {
+        return "良";
+    }
+    else if (value < 900)
+    {
+        return "中";
+    }
+    else
+    {
+        return "差";
+    }
+}
+
 // 显示整个屏幕内容（第一次全刷）
 void refreshDisplay()
 {
@@ -76,83 +106,113 @@ void refreshDisplay()
     // 获取天气数据
     WeatherData weather = getWeatherData();
     String weatherText = weather.is_valid ? weather.weather : "无天气数据";
-    String temperatureText = weather.is_valid ? (String(weather.temperature) + "°C") : "--°C";
+    // 保留一位小数显示温度
+    String temperatureText = weather.is_valid ? (String(weather.temperature, 1) + "°C") : "--°C";
+    String cityText = weather.is_valid ? weather.city : "未知";
 
     // 获取传感器数据
     String humidityText = dht11_ok ? (String(humidity) + "%") : "--%";
     String lightText = bh1750_ok ? (String(lightLevel) + " lx") : "-- lx";
-    String airQualityText = "空气:" + String(gasLevel);
 
-    // 分区域更新显示
+    // 获取空气质量评级
+    String airQualityRating = getAirQualityRating(gasLevel);
 
-    // 1. 更新时间区域 (大字体)
-    u8g2Fonts.setFontMode(1);
-    u8g2Fonts.setFontDirection(0);
-    u8g2Fonts.setForegroundColor(GxEPD_BLACK);
-    u8g2Fonts.setBackgroundColor(GxEPD_WHITE);
+    // 获取LED灯状态
+    bool led_is_on = ledState;
 
-    u8g2Fonts.setFont(u8g2_font_logisoso46_tf);       // 使用大字体显示时间
-    display_epaper.setPartialWindow(24, 96, 180, 60); // 时间显示区域
+    // 开始全屏刷新
+    display_epaper.setFullWindow();
     display_epaper.firstPage();
     do
     {
-        display_epaper.fillScreen(GxEPD_WHITE);
-        u8g2Fonts.setCursor(24, 144);
+        display_epaper.fillScreen(GxEPD_WHITE); // 设置整个屏幕背景为白色
+
+        // 计算左右分区的尺寸
+        int leftWidth = display_epaper.width() / 3;      // 左侧占据1/3
+        int rightWidth = display_epaper.width() * 2 / 3; // 右侧占据2/3
+        int rightStart = leftWidth;                      // 右侧区域起始位置
+
+        // 右侧区域 - 黑底白字 - 日期和时间
+        display_epaper.fillRect(rightStart, 0, rightWidth, display_epaper.height(), GxEPD_BLACK);
+
+        // 设置右侧文本属性
+        u8g2Fonts.setFontMode(1);
+        u8g2Fonts.setFontDirection(0);
+        u8g2Fonts.setForegroundColor(GxEPD_WHITE);
+        u8g2Fonts.setBackgroundColor(GxEPD_BLACK);
+
+        // 显示日期和星期 - 更大字体
+        u8g2Fonts.setFont(u8g2_font_wqy16_t_gb2312); // 使用16pt字体
+        String dateAndWeek = String(dateStr) + " " + weekDay;
+        int16_t date_width = u8g2Fonts.getUTF8Width(dateAndWeek.c_str());
+        u8g2Fonts.setCursor(rightStart + (rightWidth - date_width) / 2, 25);
+        u8g2Fonts.print(dateAndWeek.c_str());
+
+        // 显示时间 - 更大字体
+        u8g2Fonts.setFont(u8g2_font_logisoso50_tf);
+        int16_t time_width = u8g2Fonts.getUTF8Width(timeStr);
+        u8g2Fonts.setCursor(rightStart + (rightWidth - time_width) / 2, 90);
         u8g2Fonts.print(timeStr);
-    } while (display_epaper.nextPage());
 
-    // 2. 更新日期和星期区域
-    u8g2Fonts.setFont(u8g2_font_wqy14_t_gb2312);
-    display_epaper.setPartialWindow(200, 96, 96, 60); // 日期显示区域
-    display_epaper.firstPage();
-    do
-    {
-        display_epaper.fillScreen(GxEPD_WHITE);
-        u8g2Fonts.setCursor(200, 120);
-        u8g2Fonts.print(dateStr);
-        u8g2Fonts.setCursor(200, 140);
-        u8g2Fonts.print(weekDay);
-    } while (display_epaper.nextPage());
+        // 显示自定义短语
+        u8g2Fonts.setFont(u8g2_font_wqy14_t_gb2312);
+        int16_t phrase_width = u8g2Fonts.getUTF8Width(customPhrase.c_str());
+        u8g2Fonts.setCursor(rightStart + (rightWidth - phrase_width) / 2, 118);
+        u8g2Fonts.print(customPhrase.c_str());
 
-    // 3. 更新顶部黑底白字信息区域
-    u8g2Fonts.setForegroundColor(GxEPD_WHITE);
-    u8g2Fonts.setBackgroundColor(GxEPD_BLACK);
-    u8g2Fonts.setFont(u8g2_font_wqy14_t_gb2312);
+        // 左侧区域 - 白底黑字 - 传感器数据
+        u8g2Fonts.setForegroundColor(GxEPD_BLACK);
+        u8g2Fonts.setBackgroundColor(GxEPD_WHITE);
 
-    display_epaper.setPartialWindow(0, 0, display_epaper.width(), 80); // 顶部信息区域
-    display_epaper.firstPage();
-    do
-    {
-        display_epaper.fillScreen(GxEPD_BLACK);
+        // 第一行: 当前地点，天气情况和空气质量
+        u8g2Fonts.setFont(u8g2_font_wqy14_t_gb2312);
+        String locationWeather = cityText + " " + weatherText + " " + airQualityRating;
+        u8g2Fonts.setCursor(5, 20);
+        u8g2Fonts.print(locationWeather.c_str());
 
-        // 天气信息
-        u8g2Fonts.setCursor(10, 20);
-        u8g2Fonts.print("天气: ");
-        u8g2Fonts.print(weatherText.c_str());
+        // 绘制灯泡图标在第一行最右侧
+        int bulbX = leftWidth - 20; // 灯泡X坐标
+        int bulbY = 15;             // 灯泡Y坐标
+        int bulbRadius = 7;         // 灯泡圆形部分半径
 
-        // 温度信息
-        u8g2Fonts.setCursor(160, 20);
-        u8g2Fonts.print("温度: ");
-        u8g2Fonts.print(temperatureText.c_str());
+        // 画灯泡外形（圆形部分）
+        display_epaper.fillCircle(bulbX, bulbY, bulbRadius, GxEPD_BLACK);
 
-        // 湿度信息
-        u8g2Fonts.setCursor(10, 50);
-        u8g2Fonts.print("湿度: ");
-        u8g2Fonts.print(humidityText.c_str());
+        // 画灯泡底部（矩形部分）
+        display_epaper.fillRect(bulbX - 3, bulbY + bulbRadius - 1, 6, 4, GxEPD_BLACK);
 
-        // 光照强度
-        u8g2Fonts.setCursor(160, 50);
-        u8g2Fonts.print("光照: ");
-        u8g2Fonts.print(lightText.c_str());
+        // 如果LED灯开启，画亮起的灯泡内部
+        if (led_is_on)
+        {
+            display_epaper.fillCircle(bulbX, bulbY, bulbRadius - 2, GxEPD_WHITE);
+            // 画几条光线
+            display_epaper.drawLine(bulbX - bulbRadius - 4, bulbY, bulbX - bulbRadius - 1, bulbY, GxEPD_BLACK);
+            display_epaper.drawLine(bulbX + bulbRadius + 1, bulbY, bulbX + bulbRadius + 4, bulbY, GxEPD_BLACK);
+            display_epaper.drawLine(bulbX, bulbY - bulbRadius - 4, bulbX, bulbY - bulbRadius - 1, GxEPD_BLACK);
+        }
 
-        // 空气质量
-        u8g2Fonts.setCursor(10, 75);
-        u8g2Fonts.print(airQualityText.c_str());
+        // 第二行: 室外温度
+        String outdoorTemp = "室外:" + temperatureText;
+        u8g2Fonts.setCursor(5, 45);
+        u8g2Fonts.print(outdoorTemp.c_str());
 
-        // WiFi状态
-        u8g2Fonts.setCursor(160, 75);
-        u8g2Fonts.print("WiFi: ");
-        u8g2Fonts.print(WiFi.status() == WL_CONNECTED ? "已连接" : "未连接");
+        // 第三行: 室内温度
+        String indoorTemp = "室内:" + String(temperature, 1) + "°C";
+        u8g2Fonts.setCursor(5, 70);
+        u8g2Fonts.print(indoorTemp.c_str());
+
+        // 第四行: 湿度
+        String humidityInfo = "湿度:" + humidityText;
+        u8g2Fonts.setCursor(5, 95);
+        u8g2Fonts.print(humidityInfo.c_str());
+
+        // 第五行: 光照
+        String lightInfo = "光照:" + lightText;
+        u8g2Fonts.setCursor(5, 120);
+        u8g2Fonts.print(lightInfo.c_str());
+
+        // 绘制分隔线
+        display_epaper.drawLine(leftWidth, 0, leftWidth, display_epaper.height(), GxEPD_BLACK);
 
     } while (display_epaper.nextPage());
 }
@@ -172,19 +232,27 @@ void updateTimeDisplay()
     {
         sprintf(timeStr, "%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
 
+        // 计算左右区域的尺寸
+        int leftWidth = display_epaper.width() / 3;      // 左侧占据1/3
+        int rightWidth = display_epaper.width() * 2 / 3; // 右侧占据2/3
+        int rightStart = leftWidth;                      // 右侧区域起始位置
+
         // 使用局部更新仅更新时间
         u8g2Fonts.setFontMode(1);
         u8g2Fonts.setFontDirection(0);
-        u8g2Fonts.setForegroundColor(GxEPD_BLACK);
-        u8g2Fonts.setBackgroundColor(GxEPD_WHITE);
+        u8g2Fonts.setForegroundColor(GxEPD_WHITE);
+        u8g2Fonts.setBackgroundColor(GxEPD_BLACK);
 
-        u8g2Fonts.setFont(u8g2_font_logisoso46_tf);
-        display_epaper.setPartialWindow(24, 96, 180, 60);
+        u8g2Fonts.setFont(u8g2_font_logisoso50_tf);
+        int16_t time_width = u8g2Fonts.getUTF8Width(timeStr);
+        int16_t x_pos = rightStart + (rightWidth - time_width) / 2;
+
+        display_epaper.setPartialWindow(x_pos - 5, 40, time_width + 10, 55);
         display_epaper.firstPage();
         do
         {
-            display_epaper.fillScreen(GxEPD_WHITE);
-            u8g2Fonts.setCursor(24, 144);
+            display_epaper.fillScreen(GxEPD_BLACK); // 确保背景是黑色
+            u8g2Fonts.setCursor(x_pos, 90);
             u8g2Fonts.print(timeStr);
         } while (display_epaper.nextPage());
     }
@@ -219,29 +287,63 @@ void showEPaperStartupScreen()
     display_epaper.firstPage();
     do
     {
-        display_epaper.fillScreen(GxEPD_WHITE); // 设置背景为白色
+        display_epaper.fillScreen(GxEPD_WHITE); // 设置整个屏幕背景为白色
 
-        // 顶部黑色标题栏
-        display_epaper.fillRect(0, 0, display_epaper.width(), 40, GxEPD_BLACK);
-        u8g2Fonts.setFont(u8g2_font_wqy14_t_gb2312);
-        int16_t title_w = u8g2Fonts.getUTF8Width("ESP32 HomeKit");
+        // 计算左右分区的尺寸
+        int leftWidth = display_epaper.width() / 3;      // 左侧占据1/3
+        int rightWidth = display_epaper.width() * 2 / 3; // 右侧占据2/3
+        int rightStart = leftWidth;                      // 右侧区域起始位置
+
+        // 右侧区域 - 黑底白字
+        display_epaper.fillRect(rightStart, 0, rightWidth, display_epaper.height(), GxEPD_BLACK);
+
+        // 设置右侧文本属性
+        u8g2Fonts.setFontMode(1);
+        u8g2Fonts.setFontDirection(0);
         u8g2Fonts.setForegroundColor(GxEPD_WHITE);
-        u8g2Fonts.setCursor((display_epaper.width() - title_w) / 2, 25);
-        u8g2Fonts.print("ESP32 HomeKit");
-        u8g2Fonts.setForegroundColor(GxEPD_BLACK);
+        u8g2Fonts.setBackgroundColor(GxEPD_BLACK);
 
-        // 显示中间的标题和信息
+        // 右侧标题
+        u8g2Fonts.setFont(u8g2_font_wqy16_t_gb2312);
+        String title = "ESP32 智能家居";
+        int16_t title_width = u8g2Fonts.getUTF8Width(title.c_str());
+        u8g2Fonts.setCursor(rightStart + (rightWidth - title_width) / 2, 25);
+        u8g2Fonts.print(title.c_str());
+
+        // 右侧系统名称 - 大字体
+        u8g2Fonts.setFont(u8g2_font_logisoso22_tf);
+        String main_title = "传感器监控";
+        int16_t main_title_width = u8g2Fonts.getUTF8Width(main_title.c_str());
+        u8g2Fonts.setCursor(rightStart + (rightWidth - main_title_width) / 2, 70);
+        u8g2Fonts.print(main_title.c_str());
+
+        // 右侧初始化状态
         u8g2Fonts.setFont(u8g2_font_wqy14_t_gb2312);
-        u8g2Fonts.setCursor((display_epaper.width() - u8g2Fonts.getUTF8Width("传感器监控系统")) / 2, 80);
-        u8g2Fonts.print("传感器监控系统");
+        String init_text = "正在初始化...";
+        int16_t init_text_width = u8g2Fonts.getUTF8Width(init_text.c_str());
+        u8g2Fonts.setCursor(rightStart + (rightWidth - init_text_width) / 2, 110);
+        u8g2Fonts.print(init_text.c_str());
 
-        u8g2Fonts.setCursor((display_epaper.width() - u8g2Fonts.getUTF8Width("正在初始化...")) / 2, 110);
-        u8g2Fonts.print("正在初始化...");
+        // 左侧区域 - 白底黑字 - 版本信息
+        u8g2Fonts.setForegroundColor(GxEPD_BLACK);
+        u8g2Fonts.setBackgroundColor(GxEPD_WHITE);
+        u8g2Fonts.setFont(u8g2_font_wqy14_t_gb2312); // 改为14pt字体
 
-        // 底部版本号
-        display_epaper.drawLine(0, 130, display_epaper.width(), 130, GxEPD_BLACK);
-        u8g2Fonts.setCursor(10, 145);
-        u8g2Fonts.print("固件版本: v2.1");
+        // 版本和时间信息
+        u8g2Fonts.setCursor(5, 30);
+        u8g2Fonts.print("固件版本:");
+
+        u8g2Fonts.setCursor(5, 60);
+        u8g2Fonts.print("v2.1");
+
+        u8g2Fonts.setCursor(5, 90);
+        u8g2Fonts.print(__DATE__);
+
+        u8g2Fonts.setCursor(5, 120);
+        u8g2Fonts.print(__TIME__);
+
+        // 绘制分隔线
+        display_epaper.drawLine(leftWidth, 0, leftWidth, display_epaper.height(), GxEPD_BLACK);
 
     } while (display_epaper.nextPage());
 
@@ -267,31 +369,43 @@ void showEPaperError(const char *errorMsg)
     display_epaper.firstPage();
     do
     {
-        display_epaper.fillScreen(GxEPD_WHITE); // 设置背景为白色
+        display_epaper.fillScreen(GxEPD_WHITE); // 设置整个屏幕背景为白色
 
-        // 使用黑底白字显示错误标题
-        display_epaper.fillRect(0, 0, display_epaper.width(), 40, GxEPD_BLACK);
-        u8g2Fonts.setFont(u8g2_font_wqy14_t_gb2312);
-        int16_t title_w = u8g2Fonts.getUTF8Width("错误");
+        // 计算左右分区的尺寸
+        int leftWidth = display_epaper.width() / 3;      // 左侧占据1/3
+        int rightWidth = display_epaper.width() * 2 / 3; // 右侧占据2/3
+        int rightStart = leftWidth;                      // 右侧区域起始位置
+
+        // 右侧区域 - 黑底白字
+        display_epaper.fillRect(rightStart, 0, rightWidth, display_epaper.height(), GxEPD_BLACK);
+
+        // 设置右侧文本属性
+        u8g2Fonts.setFontMode(1);
+        u8g2Fonts.setFontDirection(0);
         u8g2Fonts.setForegroundColor(GxEPD_WHITE);
-        u8g2Fonts.setCursor((display_epaper.width() - title_w) / 2, 25);
-        u8g2Fonts.print("错误");
-        u8g2Fonts.setForegroundColor(GxEPD_BLACK);
+        u8g2Fonts.setBackgroundColor(GxEPD_BLACK);
+
+        // 显示错误标题
+        u8g2Fonts.setFont(u8g2_font_wqy16_t_gb2312);
+        String error_title = "系统错误";
+        int16_t title_width = u8g2Fonts.getUTF8Width(error_title.c_str());
+        u8g2Fonts.setCursor(rightStart + (rightWidth - title_width) / 2, 25);
+        u8g2Fonts.print(error_title.c_str());
 
         // 显示错误信息
-        u8g2Fonts.setFont(u8g2_font_wqy14_t_gb2312);
+        u8g2Fonts.setFont(u8g2_font_wqy14_t_gb2312); // 改为14pt字体
 
         // 计算文本行数并适当显示
         const char *ptr = errorMsg;
-        int yPos = 70;
+        int yPos = 60; // 从60像素处开始显示错误信息
 
         while (*ptr)
         {
-            char buffer[50];
+            char buffer[28]; // 稍微调整缓冲区大小
             int i = 0;
 
-            // 提取一行文本（最多40个字符）
-            while (*ptr && i < 40 && *ptr != '\n')
+            // 提取一行文本（调整为适合14pt字体宽度）
+            while (*ptr && i < 24 && *ptr != '\n')
             {
                 buffer[i++] = *ptr++;
             }
@@ -305,18 +419,43 @@ void showEPaperError(const char *errorMsg)
             buffer[i] = '\0';
 
             // 显示这一行文本
-            u8g2Fonts.setCursor(10, yPos);
+            u8g2Fonts.setCursor(rightStart + 10, yPos);
             u8g2Fonts.print(buffer);
 
-            // 更新Y位置
-            yPos += 25;
+            // 更新Y位置，增加行高
+            yPos += 22; // 调整为适合14pt字体的行高
 
             // 防止超出显示区域
-            if (yPos > 140)
+            if (yPos > 120)
             {
                 break;
             }
         }
+
+        // 左侧区域 - 白底黑字 - 错误提示
+        u8g2Fonts.setForegroundColor(GxEPD_BLACK);
+        u8g2Fonts.setBackgroundColor(GxEPD_WHITE);
+
+        // 错误图标 - 更大的感叹号
+        display_epaper.fillCircle(leftWidth / 2, 35, 20, GxEPD_BLACK);
+        display_epaper.fillCircle(leftWidth / 2, 35, 17, GxEPD_WHITE);
+        u8g2Fonts.setFont(u8g2_font_logisoso22_tf);
+        u8g2Fonts.setCursor(leftWidth / 2 - 5, 42);
+        u8g2Fonts.print("!");
+
+        // 错误提示
+        u8g2Fonts.setFont(u8g2_font_wqy14_t_gb2312); // 改为14pt字体
+        u8g2Fonts.setCursor(8, 80);
+        u8g2Fonts.print("错误代码:");
+
+        // 生成简单错误代码
+        char errorCode[8];
+        sprintf(errorCode, "E%04X", (uint16_t)((uint32_t)errorMsg & 0xFFFF));
+        u8g2Fonts.setCursor(15, 110);
+        u8g2Fonts.print(errorCode);
+
+        // 绘制分隔线
+        display_epaper.drawLine(leftWidth, 0, leftWidth, display_epaper.height(), GxEPD_BLACK);
 
     } while (display_epaper.nextPage());
 }

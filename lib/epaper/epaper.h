@@ -14,6 +14,7 @@
 #include "mq2sensor.h"                // 包含MQ2传感器相关头文件
 #include "lightsensor.h"              // 包含光线传感器相关头文件
 #include "time_manager.h"             // 包含时间管理相关头文件
+#include "ws2812.h"                   // 包含LED灯相关头文件
 
 // 墨水屏引脚定义
 #define EPAPER_BUSY 25 // 墨水屏忙状态引脚
@@ -22,6 +23,9 @@
 #define EPAPER_CS 33   // 墨水屏片选引脚
 #define EPAPER_SCK 18  // 墨水屏SPI时钟引脚
 #define EPAPER_MOSI 23 // 墨水屏SPI数据输出引脚
+
+// 自定义显示短语
+extern String customPhrase; // 墨水屏底部显示的自定义短语
 
 // 墨水屏相关函数声明
 bool initEPaper();                          // 初始化墨水屏
@@ -32,6 +36,7 @@ void deepSleepEPaper();                     // 使墨水屏进入深度睡眠模
 void wakeupEPaper();                        // 唤醒墨水屏
 void showEPaperStartupScreen();             // 显示墨水屏启动画面
 void showEPaperError(const char *errorMsg); // 在墨水屏上显示错误信息
+void setCustomPhrase(const char *phrase);   // 设置自定义短语
 
 // 外部变量声明
 extern GxEPD2_BW<GxEPD2_290, GxEPD2_290::HEIGHT> display_epaper; // 声明外部墨水屏显示对象

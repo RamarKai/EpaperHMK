@@ -15,8 +15,8 @@ const unsigned long displayUpdateInterval = 100; // 设置显示更新的时间�
 unsigned long lastWeatherUpdate = 0;                // 记录上次天气数据更新的时间
 const unsigned long weatherUpdateInterval = 300000; // 设置天气数据更新的时间间隔为300000毫秒(5分钟)
 
-unsigned long lastEPaperUpdate = 0;               // 记录上次墨水屏更新的时间
-const unsigned long ePaperUpdateInterval = 30000; // 设置墨水屏更新的时间间隔为30000毫秒(30秒)
+unsigned long lastEPaperUpdate = 0;              // 记录上次墨水屏更新的时间
+const unsigned long ePaperUpdateInterval = 5000; // 设置墨水屏更新的时间间隔为30000毫秒(30秒)
 
 bool weatherServiceInitialized = false; // 标记天气服务是否已初始化
 bool weatherInitialUpdateDone = false;  // 标记是否已完成天气数据的首次更新

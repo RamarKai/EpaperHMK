@@ -11,7 +11,7 @@
 
 #define WEATHER_UPDATE_INTERVAL 600000 // 定义天气数据更新间隔为600000毫秒(10分钟)
 
-#define WEATHER_LOCATION "fujianfuzhou" // 定义天气查询位置为"福建福州"
+#define WEATHER_LOCATION "hangzhou" // 定义天气查询位置为"福建福州"
 
 struct WeatherData
 {                              // 定义天气数据结构体
