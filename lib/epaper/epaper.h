@@ -29,9 +29,10 @@ extern String customPhrase; // 墨水屏底部显示的自定义短语
 
 // 墨水屏相关函数声明
 bool initEPaper();                          // 初始化墨水屏
-void updateEPaper();                        // 更新墨水屏显示内容
+void updateEPaper();                        // 更新墨水屏显示内容（全部刷新）
 void refreshDisplay();                      // 刷新显示内容
 void updateTimeDisplay();                   // 更新时间显示
+void updateEPaperSensorData();              // 部分更新墨水屏上的传感器数据
 void deepSleepEPaper();                     // 使墨水屏进入深度睡眠模式
 void wakeupEPaper();                        // 唤醒墨水屏
 void showEPaperStartupScreen();             // 显示墨水屏启动画面

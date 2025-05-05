@@ -16,6 +16,11 @@ void setCustomPhrase(const char *phrase)
     customPhrase = String(phrase);
 }
 
+// 是否启用测试数据模式（固定室内温度和湿度）
+bool useTestData = true;
+float testIndoorTemperature = 20.0; // 测试室内温度为20度
+float testIndoorHumidity = 35.0;    // 测试室内湿度为35%（干燥室内湿度）
+
 // 初始化墨水屏
 bool initEPaper()
 {
@@ -110,9 +115,13 @@ void refreshDisplay()
     String temperatureText = weather.is_valid ? (String(weather.temperature, 1) + "°C") : "--°C";
     String cityText = weather.is_valid ? weather.city : "未知";
 
-    // 获取传感器数据
-    String humidityText = dht11_ok ? (String(humidity) + "%") : "--%";
-    String lightText = bh1750_ok ? (String(lightLevel) + " lx") : "-- lx";
+    // 获取或使用测试传感器数据
+    float indoorTemperature = useTestData ? testIndoorTemperature : temperature;
+    float indoorHumidity = useTestData ? testIndoorHumidity : humidity;
+
+    String humidityText = dht11_ok ? (String((int)indoorHumidity) + "%") : "--%";
+    // 光照显示为整数，不显示小数点
+    String lightText = bh1750_ok ? (String((int)lightLevel) + " lx") : "-- lx";
 
     // 获取空气质量评级
     String airQualityRating = getAirQualityRating(gasLevel);
@@ -197,7 +206,7 @@ void refreshDisplay()
         u8g2Fonts.print(outdoorTemp.c_str());
 
         // 第三行: 室内温度
-        String indoorTemp = "室内:" + String(temperature, 1) + "°C";
+        String indoorTemp = "室内:" + String(indoorTemperature, 1) + "°C";
         u8g2Fonts.setCursor(5, 70);
         u8g2Fonts.print(indoorTemp.c_str());
 
@@ -319,10 +328,15 @@ void showEPaperStartupScreen()
 
         // 右侧初始化状态
         u8g2Fonts.setFont(u8g2_font_wqy14_t_gb2312);
-        String init_text = "正在初始化...";
+        String init_text = "系统初始化中";
         int16_t init_text_width = u8g2Fonts.getUTF8Width(init_text.c_str());
-        u8g2Fonts.setCursor(rightStart + (rightWidth - init_text_width) / 2, 110);
+        u8g2Fonts.setCursor(rightStart + (rightWidth - init_text_width) / 2, 100);
         u8g2Fonts.print(init_text.c_str());
+
+        String wait_text = "请等待初始化完成";
+        int16_t wait_text_width = u8g2Fonts.getUTF8Width(wait_text.c_str());
+        u8g2Fonts.setCursor(rightStart + (rightWidth - wait_text_width) / 2, 124);
+        u8g2Fonts.print(wait_text.c_str());
 
         // 左侧区域 - 白底黑字 - 版本信息
         u8g2Fonts.setForegroundColor(GxEPD_BLACK);
@@ -458,4 +472,106 @@ void showEPaperError(const char *errorMsg)
         display_epaper.drawLine(leftWidth, 0, leftWidth, display_epaper.height(), GxEPD_BLACK);
 
     } while (display_epaper.nextPage());
+}
+
+// 部分更新墨水屏上的传感器数据
+void updateEPaperSensorData()
+{
+    // 检查墨水屏是否已初始化
+    if (!epaper_initialized)
+    {
+        Serial.println("E-Paper not initialized, cannot update sensor data");
+        return;
+    }
+
+    // 获取天气数据
+    WeatherData weather = getWeatherData();
+    // 保留一位小数显示温度
+    String temperatureText = weather.is_valid ? (String(weather.temperature, 1) + "°C") : "--°C";
+    String cityText = weather.is_valid ? weather.city : "未知";
+    String weatherText = weather.is_valid ? weather.weather : "无天气数据";
+
+    // 获取空气质量评级
+    String airQualityRating = getAirQualityRating(gasLevel);
+
+    // 获取或使用测试传感器数据
+    float indoorTemperature = useTestData ? testIndoorTemperature : temperature;
+    float indoorHumidity = useTestData ? testIndoorHumidity : humidity;
+
+    String humidityText = dht11_ok ? (String((int)indoorHumidity) + "%") : "--%";
+    // 光照显示为整数，不显示小数点
+    String lightText = bh1750_ok ? (String((int)lightLevel) + " lx") : "-- lx";
+
+    // 获取LED灯状态
+    bool led_is_on = ledState;
+
+    // 计算左侧区域的宽度
+    int leftWidth = display_epaper.width() / 3; // 左侧占据1/3
+
+    // 设置部分更新区域（只更新左侧区域）
+    display_epaper.setPartialWindow(0, 0, leftWidth, display_epaper.height());
+    display_epaper.firstPage();
+    do
+    {
+        display_epaper.fillScreen(GxEPD_WHITE); // 设置背景为白色
+
+        // 设置文本属性
+        u8g2Fonts.setFontMode(1);
+        u8g2Fonts.setFontDirection(0);
+        u8g2Fonts.setForegroundColor(GxEPD_BLACK);
+        u8g2Fonts.setBackgroundColor(GxEPD_WHITE);
+
+        // 第一行: 当前地点，天气情况和空气质量
+        u8g2Fonts.setFont(u8g2_font_wqy14_t_gb2312);
+        String locationWeather = cityText + " " + weatherText + " " + airQualityRating;
+        u8g2Fonts.setCursor(5, 20);
+        u8g2Fonts.print(locationWeather.c_str());
+
+        // 绘制灯泡图标在第一行最右侧
+        int bulbX = leftWidth - 20; // 灯泡X坐标
+        int bulbY = 15;             // 灯泡Y坐标
+        int bulbRadius = 7;         // 灯泡圆形部分半径
+
+        // 画灯泡外形（圆形部分）
+        display_epaper.fillCircle(bulbX, bulbY, bulbRadius, GxEPD_BLACK);
+
+        // 画灯泡底部（矩形部分）
+        display_epaper.fillRect(bulbX - 3, bulbY + bulbRadius - 1, 6, 4, GxEPD_BLACK);
+
+        // 如果LED灯开启，画亮起的灯泡内部
+        if (led_is_on)
+        {
+            display_epaper.fillCircle(bulbX, bulbY, bulbRadius - 2, GxEPD_WHITE);
+            // 画几条光线
+            display_epaper.drawLine(bulbX - bulbRadius - 4, bulbY, bulbX - bulbRadius - 1, bulbY, GxEPD_BLACK);
+            display_epaper.drawLine(bulbX + bulbRadius + 1, bulbY, bulbX + bulbRadius + 4, bulbY, GxEPD_BLACK);
+            display_epaper.drawLine(bulbX, bulbY - bulbRadius - 4, bulbX, bulbY - bulbRadius - 1, GxEPD_BLACK);
+        }
+
+        // 第二行: 室外温度
+        String outdoorTemp = "室外:" + temperatureText;
+        u8g2Fonts.setCursor(5, 45);
+        u8g2Fonts.print(outdoorTemp.c_str());
+
+        // 第三行: 室内温度
+        String indoorTemp = "室内:" + String(indoorTemperature, 1) + "°C";
+        u8g2Fonts.setCursor(5, 70);
+        u8g2Fonts.print(indoorTemp.c_str());
+
+        // 第四行: 湿度
+        String humidityInfo = "湿度:" + humidityText;
+        u8g2Fonts.setCursor(5, 95);
+        u8g2Fonts.print(humidityInfo.c_str());
+
+        // 第五行: 光照
+        String lightInfo = "光照:" + lightText;
+        u8g2Fonts.setCursor(5, 120);
+        u8g2Fonts.print(lightInfo.c_str());
+
+        // 绘制分隔线
+        display_epaper.drawLine(leftWidth - 1, 0, leftWidth - 1, display_epaper.height(), GxEPD_BLACK);
+
+    } while (display_epaper.nextPage());
+
+    Serial.println("E-Paper sensor data updated");
 }

@@ -15,14 +15,18 @@ const unsigned long displayUpdateInterval = 100; // 设置显示更新的时间�
 unsigned long lastWeatherUpdate = 0;                // 记录上次天气数据更新的时间
 const unsigned long weatherUpdateInterval = 300000; // 设置天气数据更新的时间间隔为300000毫秒(5分钟)
 
-unsigned long lastEPaperUpdate = 0;              // 记录上次墨水屏更新的时间
-const unsigned long ePaperUpdateInterval = 5000; // 设置墨水屏更新的时间间隔为30000毫秒(30秒)
+unsigned long lastEPaperUpdate = 0;               // 记录上次墨水屏更新的时间
+const unsigned long ePaperUpdateInterval = 40000; // 设置墨水屏完整更新的时间间隔为40000毫秒(40秒)
+
+unsigned long lastEPaperSensorUpdate = 0;              // 记录上次墨水屏传感器数据更新的时间
+const unsigned long ePaperSensorUpdateInterval = 3000; // 设置墨水屏传感器数据更新的时间间隔为3000毫秒(3秒)
 
 bool weatherServiceInitialized = false; // 标记天气服务是否已初始化
 bool weatherInitialUpdateDone = false;  // 标记是否已完成天气数据的首次更新
 bool wifiPreviouslyConnected = false;   // 记录上一次WiFi的连接状态
 bool timeManagerInitialized = false;    // 标记时间管理模块是否已初始化（改名以避免与time_manager.cpp中的变量冲突）
 bool ePaperInitialized = false;         // 标记墨水屏是否已初始化
+bool initializationComplete = false;    // 添加全局变量标记初始化完成状态
 
 void setup()
 {                                        // Arduino程序的初始化函数
@@ -61,9 +65,20 @@ void setup()
         showError("E-Paper init failed");                 // 在OLED显示屏上显示错误信息
         delay(2000);                                      // 延迟2秒，让用户能看到错误信息
     }
+    // 注意：此时已经在initEPaper函数中调用了showEPaperStartupScreen，显示了墨水屏启动界面
 
     // 初始化串口2用于命令通信
     initSerial2(); // 初始化串口2
+
+    // 在OLED上更新状态
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(0, 0);
+    display.println("HomeSpan Starting...");
+    display.setCursor(0, 16);
+    display.println("Waiting for WiFi...");
+    display.display();
 
     homeSpan.begin(Category::Lighting, "ESP32 Sensors"); // 初始化HomeSpan，设置设备类别和名称
 
@@ -87,18 +102,11 @@ void setup()
         new DEV_HumiditySensor();    // 添加湿度传感器服务
     }
 
-    display.clearDisplay();                  // 清除显示屏内容
-    display.setTextSize(1);                  // 设置文本大小为1
-    display.setTextColor(SSD1306_WHITE);     // 设置文本颜色为白色
-    display.setCursor(0, 0);                 // 设置光标位置到左上角
-    display.println("HomeSpan Starting..."); // 显示HomeSpan启动中的信息
-    display.setCursor(0, 16);                // 设置光标位置到第二行
-    display.println("Waiting for WiFi...");  // 显示等待WiFi连接的信息
-    display.display();                       // 更新显示内容
-
     lastDisplayUpdate = millis(); // 记录当前时间为上次显示更新时间
     lastWeatherUpdate = millis(); // 记录当前时间为上次天气更新时间
     lastEPaperUpdate = millis();  // 记录当前时间为上次墨水屏更新时间
+
+    // 不在setup中完成初始化标记，而是在loop中检测WiFi连接和初始化完成情况
 }
 
 void loop()
@@ -117,20 +125,106 @@ void loop()
         readHumidity();    // 读取湿度数据
     }
 
-    if (currentMillis - lastDisplayUpdate >= displayUpdateInterval)
-    {                                      // 检查是否到了更新显示的时间
-        updateDisplay();                   // 更新显示内容
-        lastDisplayUpdate = currentMillis; // 更新上次显示更新的时间
-    }
-
-    // 更新墨水屏显示内容
-    if (ePaperInitialized && (currentMillis - lastEPaperUpdate >= ePaperUpdateInterval))
-    {
-        updateEPaper();                   // 更新墨水屏显示内容
-        lastEPaperUpdate = currentMillis; // 更新上次墨水屏更新的时间
-    }
-
     bool wifiConnected = (WiFi.status() == WL_CONNECTED); // 检查WiFi是否连接
+
+    // 判断是否初始化完成
+    if (!initializationComplete)
+    {
+        // 更新OLED显示状态
+        if (currentMillis - lastDisplayUpdate >= displayUpdateInterval)
+        {
+            display.clearDisplay();
+            display.setTextSize(1);
+            display.setTextColor(SSD1306_WHITE);
+            display.setCursor(0, 0);
+            display.println("Initializing...");
+            display.setCursor(0, 16);
+            display.print("WiFi: ");
+            display.println(wifiConnected ? "Connected" : "Waiting...");
+
+            // 显示初始化进度
+            display.setCursor(0, 32);
+            display.print("Time: ");
+            display.println(timeManagerInitialized ? "OK" : "Waiting...");
+
+            display.setCursor(0, 44);
+            display.print("Weather: ");
+            display.println(weatherInitialUpdateDone ? "OK" : "Waiting...");
+
+            display.display();
+            lastDisplayUpdate = currentMillis;
+        }
+
+        // 检查所有初始化是否完成
+        if (wifiConnected && timeManagerInitialized && weatherInitialUpdateDone)
+        {
+            initializationComplete = true;
+
+            // 显示初始化完成消息
+            display.clearDisplay();
+            display.setTextSize(1);
+            display.setTextColor(SSD1306_WHITE);
+            display.setCursor(0, 0);
+            display.println("Initialization");
+            display.setCursor(0, 16);
+            display.println("Complete!");
+            display.setCursor(0, 32);
+            display.println("Starting main");
+            display.setCursor(0, 44);
+            display.println("application...");
+            display.display();
+
+            // 刷新墨水屏，显示完整的主界面
+            if (ePaperInitialized)
+            {
+                // 添加一个短暂的延迟让OLED显示完成
+                delay(500);
+
+                // 在OLED上显示更新墨水屏信息
+                display.clearDisplay();
+                display.setTextSize(1);
+                display.setTextColor(SSD1306_WHITE);
+                display.setCursor(0, 0);
+                display.println("Updating E-Paper...");
+                display.display();
+
+                // 更新墨水屏显示主界面
+                updateEPaper();
+
+                // 更新完成后显示就绪信息
+                display.clearDisplay();
+                display.setCursor(0, 0);
+                display.println("System Ready!");
+                display.display();
+            }
+
+            delay(2000); // 显示完成消息2秒
+        }
+    }
+    else
+    {
+        // 只有在初始化完成后才更新主界面显示
+        if (currentMillis - lastDisplayUpdate >= displayUpdateInterval)
+        {                                      // 检查是否到了更新显示的时间
+            updateDisplay();                   // 更新显示内容
+            lastDisplayUpdate = currentMillis; // 更新上次显示更新的时间
+        }
+
+        // 墨水屏传感器数据区域部分更新（每3秒更新一次传感器数据）
+        if (ePaperInitialized && (currentMillis - lastEPaperSensorUpdate >= ePaperSensorUpdateInterval))
+        {
+            updateEPaperSensorData();               // 部分更新墨水屏上的传感器数据
+            lastEPaperSensorUpdate = currentMillis; // 更新上次传感器数据更新的时间
+        }
+
+        // 墨水屏完整更新（每40秒刷新一次全屏）
+        if (ePaperInitialized && (currentMillis - lastEPaperUpdate >= ePaperUpdateInterval))
+        {
+            updateEPaper();                         // 更新墨水屏全部内容
+            lastEPaperUpdate = currentMillis;       // 更新上次墨水屏完整更新的时间
+            lastEPaperSensorUpdate = currentMillis; // 同时也更新传感器数据时间戳
+        }
+    }
 
     if (wifiConnected && !wifiPreviouslyConnected)
     {                                      // 如果WiFi刚刚连接上
@@ -138,16 +232,22 @@ void loop()
         Serial.print("IP address: ");      // 打印IP地址信息前缀
         Serial.println(WiFi.localIP());    // 打印获取到的IP地址
 
-        display.clearDisplay();              // 清除显示屏内容
-        display.setTextSize(1);              // 设置文本大小为1
-        display.setTextColor(SSD1306_WHITE); // 设置文本颜色为白色
-        display.setCursor(0, 0);             // 设置光标位置到左上角
-        display.println("WiFi Connected!");  // 显示WiFi已连接的信息
-        display.setCursor(0, 16);            // 设置光标位置到第二行
-        display.print("IP: ");               // 显示IP地址前缀
-        display.println(WiFi.localIP());     // 显示获取到的IP地址
-        display.display();                   // 更新显示内容
-        delay(2000);                         // 延迟2秒，让用户能看到WiFi连接信息
+        if (!initializationComplete)
+        {
+            // 在初始化界面上更新WiFi连接状态
+            display.clearDisplay();
+            display.setTextSize(1);
+            display.setTextColor(SSD1306_WHITE);
+            display.setCursor(0, 0);
+            display.println("WiFi Connected!");
+            display.setCursor(0, 16);
+            display.print("IP: ");
+            display.println(WiFi.localIP());
+            display.setCursor(0, 32);
+            display.println("Initializing...");
+            display.display();
+            delay(1000);
+        }
 
         // 初始化时间管理模块
         if (!timeManagerInitialized)
@@ -174,8 +274,11 @@ void loop()
             else
             {                                                            // 如果初始化失败
                 Serial.println("Weather service initialization failed"); // 打印初始化失败信息
-                showError("Weather service init failed");                // 在显示屏上显示错误信息
-                delay(2000);                                             // 延迟2秒，让用户能看到错误信息
+                if (!initializationComplete)
+                {
+                    showError("Weather service init failed"); // 在显示屏上显示错误信息
+                    delay(2000);                              // 延迟2秒，让用户能看到错误信息
+                }
             }
         }
     }

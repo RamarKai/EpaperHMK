@@ -176,19 +176,6 @@ ESP32 E-Paper HMK是一个基于ESP32的智能家居环境监控与控制系统�
 
 ## 软件环境
 
-- PlatformIO
-- Arduino框架
-- 必要库：
-  - HomeSpan (HomeKit集成)
-  - Adafruit SSD1306 (OLED显示)
-  - GxEPD2 (E-Paper驱动)
-  - FastLED (WS2812B控制)
-  - DHT sensor library
-  - ArduinoJson
-  - U8g2_for_Adafruit_GFX
-
-## 软件环境
-
 ### 开发环境
 
 - **PlatformIO**
@@ -201,43 +188,66 @@ ESP32 E-Paper HMK是一个基于ESP32的智能家居环境监控与控制系统�
   - ESP32 Arduino Core 版本: ≥ 2.0.5
   - 分区方案: huge_app.csv (提供更大的应用空间)
   - 编译优化: -O2 (平衡空间和性能)
+  - Flash模式: QIO（四线模式，提高传输速度）
 
 ### 必要库依赖
 
 1. **HomeSpan (HomeKit集成)**
-   - 版本: 1.9.1
+   - 版本: 1.9.1+
    - 功能: 提供Apple HomeKit协议实现
    - 配置: 需设置HomeKit配对码
 
 2. **Adafruit SSD1306 (OLED显示)**
-   - 版本: 2.5.13
+   - 版本: 2.5.13+
    - 功能: 控制OLED显示屏
-   - 依赖: Adafruit GFX Library
+   - 依赖: Adafruit GFX Library >= 1.11.5
 
 3. **GxEPD2 (E-Paper驱动)**
-   - 版本: 1.5.9
+   - 版本: 1.5.9+
    - 功能: 驱动各类电子墨水屏
    - 支持型号: 兼容多种常见墨水屏
 
 4. **FastLED (WS2812B控制)**
-   - 版本: 3.9.14
+   - 版本: 3.9.14+
    - 功能: 控制WS2812B RGB LED
    - 配置: 支持颜色混合和过渡效果
 
 5. **DHT Sensor Library**
-   - 版本: 1.4.6
+   - 版本: 1.4.6+
    - 功能: 读取DHT11温湿度传感器
-   - 依赖: Adafruit Unified Sensor
+   - 依赖: Adafruit Unified Sensor >= 1.1.9
 
 6. **ArduinoJson**
-   - 版本: 7.3.1
+   - 版本: 7.3.1+
    - 功能: 处理JSON数据格式
    - 用途: 天气API数据解析
 
 7. **U8g2_for_Adafruit_GFX**
-   - 版本: 1.8.0
+   - 版本: 1.8.0+
    - 功能: 增强图形库，提供更丰富的字体支持
    - 用途: 改善E-Paper和OLED上的文字显示
+
+### 依赖关系视图
+
+```
+ESP32-EPaper-HMK
+│
+├── HomeSpan ──────────────────┐
+│                              │
+├── Adafruit SSD1306 ──────────┼── Adafruit GFX Library
+│                              │
+├── GxEPD2 ───────────────────┐│
+│                             ││
+├── FastLED                   ││
+│                             ││
+├── DHT Sensor Library ───────┼┼── Adafruit Unified Sensor
+│                             ││
+├── ArduinoJson               ││
+│                             ││
+└── U8g2_for_Adafruit_GFX ────┘│
+                               │
+                               └── Wire
+```
 
 ### 额外推荐工具
 
@@ -245,6 +255,7 @@ ESP32 E-Paper HMK是一个基于ESP32的智能家居环境监控与控制系统�
 - **MQTT Explorer**: 调试MQTT消息(可选功能)
 - **Serial Monitor**: 监控串口输出 (如Arduino IDE自带或PlatformIO的串口监视器)
 - **Wireshark**: 用于网络通信调试
+- **EspExceptionDecoder**: 用于分析ESP32崩溃日志
 
 ## 设置指南
 
@@ -276,7 +287,7 @@ ESP32 E-Paper HMK是一个基于ESP32的智能家居环境监控与控制系统�
    - 安装完成后，按提示重启VSCode
 
 3. **获取项目代码**
-   - 克隆本仓库: `git clone `
+   - 克隆本仓库: `git clone https://github.com/hmk-sensors/ESP32-EPaper-HMK.git`
    - 或下载ZIP压缩包并解压
 
 4. **打开项目**
@@ -600,10 +611,21 @@ ESP32-EPaper-HMK/
 │   └── main.cpp          # 主程序
 │
 ├── include/              # 头文件
+│   ├── config.h          # 用户配置文件(需自行创建)
+│   └── globals.h         # 全局变量和常量定义
 │
-├── platformio.ini        # PlatformIO配置
+├── test/                 # 测试代码目录
+│   └── test_main.cpp     # 单元测试代码
 │
-└── Connect.md            # 硬件连接文档
+├── .pio/                 # PlatformIO生成的构建文件夹(自动生成)
+│
+├── .vscode/              # VSCode配置文件夹
+│
+├── platformio.ini        # PlatformIO项目配置
+│
+├── README.md             # 项目说明文档
+│
+└── Connect.md            # 硬件连接文档(包含接线图和接线说明)
 ```
 
 ## 项目结构
@@ -670,7 +692,7 @@ ESP32-EPaper-HMK/
 │
 ├── README.md             # 项目说明文档
 │
-└── Connect.md            # 硬件连接文档
+└── Connect.md            # 硬件连接文档(包含接线图和接线说明)
 ```
 
 ### 模块功能说明
