@@ -32,13 +32,37 @@ void initSerial2()
 {
     // 使用指定的引脚和波特率初始化串口2
     Serial2.begin(SERIAL2_BAUD, SERIAL_8N1, SERIAL2_RX_PIN, SERIAL2_TX_PIN);
+    delay(100); // 等待串口稳定
 
     // 输出初始化信息
     Serial.println("Serial2 initialized for command communication");
 
+    // 测试串口2发送
+    Serial.println("Testing Serial2 communication...");
+
+    // 发送简单的测试消息
+    Serial2.println("=== Serial2 Test Start ===");
+    Serial2.flush();
+    delay(100);
+
+    // 发送数字测试
+    for (int i = 0; i < 5; i++)
+    {
+        Serial2.print("Test number: ");
+        Serial2.println(i);
+        Serial2.flush();
+        delay(100);
+    }
+
+    Serial2.println("=== Serial2 Test End ===");
+    Serial2.flush();
+    delay(100);
+
     // 初始化命令缓冲区
     serial2Cmd.index = 0;
     serial2Cmd.started = false;
+
+    Serial.println("Serial2 initialization complete");
 }
 
 // 处理串口2接收到的命令
@@ -91,81 +115,90 @@ void handleSerial2Commands()
 // 通过串口2发送响应数据
 void sendSerial2Response(uint8_t responseCode, const char *additionalData)
 {
-    // 发送起始字节
-    Serial2.write(CMD_START_BYTE);
+    Serial.println("Starting Serial2 response...");
+
+    // 发送起始标记
+    Serial2.println("=== Response Start ===");
+    Serial2.flush();
+    delay(10);
 
     // 发送响应码
-    Serial2.write(responseCode);
+    Serial2.print("Response Code: 0x");
+    Serial2.println(responseCode, HEX);
+    Serial2.flush();
+    delay(10);
 
-    // 如果有附加数据，则发送附加数据
+    // 发送附加数据
     if (additionalData != NULL)
     {
-        Serial2.print(additionalData);
+        Serial2.print("Data: ");
+        Serial2.println(additionalData);
+        Serial2.flush();
+        delay(10);
     }
 
-    // 发送结束字节
-    Serial2.write(CMD_END_BYTE);
+    // 发送结束标记
+    Serial2.println("=== Response End ===");
+    Serial2.flush();
 
-    // 记录发送的响应到调试串口
-    Serial.print("Response sent: 0x");
-    Serial.println(responseCode, HEX);
+    Serial.println("Serial2 response complete");
 }
 
-// 兼容旧版本的响应函数，将文本转为二进制响应
-void sendSerial2Response(const char *response)
-{
-    // 默认使用未知命令响应码
-    uint8_t respCode = RESP_UNKNOWN_CMD;
+// // 兼容旧版本的响应函数，将文本转为二进制响应
+// void sendSerial2Response(const char *response)
+// {
+//     // 默认使用未知命令响应码
+//     uint8_t respCode = RESP_UNKNOWN_CMD;
 
-    // 根据响应内容确定适当的响应码
-    if (strstr(response, "LED ON"))
-    {
-        respCode = RESP_LED_ON;
-    }
-    else if (strstr(response, "LED OFF"))
-    {
-        respCode = RESP_LED_OFF;
-    }
-    else if (strstr(response, "Brightness UP"))
-    {
-        respCode = RESP_BRIGHT_UP;
-    }
-    else if (strstr(response, "Brightness DOWN"))
-    {
-        respCode = RESP_BRIGHT_DOWN;
-    }
-    else if (strstr(response, "Temperature"))
-    {
-        respCode = RESP_TEMP;
-    }
-    else if (strstr(response, "Humidity"))
-    {
-        respCode = RESP_HUM;
-    }
-    else if (strstr(response, "Light Level"))
-    {
-        respCode = RESP_LIGHT;
-    }
-    else if (strstr(response, "Air Quality"))
-    {
-        respCode = RESP_AIR;
-    }
-    else if (strstr(response, "Time"))
-    {
-        respCode = RESP_TIME;
-    }
-    else if (strstr(response, "Weather"))
-    {
-        respCode = RESP_WEATHER;
-    }
-    else if (strstr(response, "not available"))
-    {
-        respCode = RESP_DATA_UNAVAIL;
-    }
+//     // 根据响应内容确定适当的响应码
+//     if (strstr(response, "LED ON"))
+//     {
+//         respCode = RESP_LED_ON;
+//     }
+//     else if (strstr(response, "LED OFF"))
+//     {
+//         respCode = RESP_LED_OFF;
+//     }
+//     else if (strstr(response, "Brightness UP"))
+//     {
+//         respCode = RESP_BRIGHT_UP;
+//     }
+//     else if (strstr(response, "Brightness DOWN"))
+//     {
+//         respCode = RESP_BRIGHT_DOWN;
+//     }
+//     else if (strstr(response, "Temperature"))
+//     {
+//         respCode = RESP_TEMP;
+//     }
+//     else if (strstr(response, "Humidity"))
+//     {
+//         respCode = RESP_HUM;
+//     }
+//     else if (strstr(response, "Light Level"))
+//     {
+//         respCode = RESP_LIGHT;
+//     }
+//     else if (strstr(response, "Air Quality"))
+//     {
+//         respCode = RESP_AIR;
+//     }
+//     else if (strstr(response, "Time"))
+//     {
+//         respCode = RESP_TIME;
+//     }
+//     else if (strstr(response, "Weather"))
+//     {
+//         respCode = RESP_WEATHER;
+//     }
+//     else if (strstr(response, "not available"))
+//     {
+//         respCode = RESP_DATA_UNAVAIL;
+//     }
 
-    // 发送带有原始文本的二进制响应
-    sendSerial2Response(respCode, response);
-}
+//     // 发送带有原始文本的二进制响应
+//     sendSerial2Response(respCode, response);
+// }
 
 // 处理接收到的命令
 void processSerialCommand(const char *cmd, size_t len)
@@ -367,23 +400,38 @@ void handleSensorCommand(const char *cmd, size_t len)
     {
         // 命令为"light"，获取当前光强信息
         Serial.println("Serial2 command: Get light level information");
+        Serial.print("BH1750 status: ");
+        Serial.println(bh1750_ok ? "OK" : "Not OK");
 
         // 检查BH1750传感器是否正常
         if (bh1750_ok)
         {
             // 读取当前光照强度
             float currentLight = readBH1750();
+            Serial.print("BH1750 reading: ");
+            Serial.println(currentLight);
 
-            // 格式化光照强度信息
-            char lightResponse[64];
-            sprintf(lightResponse, "%.2f", currentLight);
+            if (currentLight >= 0)
+            {
+                // 格式化光照强度信息
+                char lightResponse[64];
+                sprintf(lightResponse, "%.2f", currentLight);
 
-            // 发送光照强度响应
-            sendSerial2Response(RESP_LIGHT, lightResponse);
+                // 发送光照强度响应
+                Serial.println("Sending light response...");
+                sendSerial2Response(RESP_LIGHT, lightResponse);
+                Serial.println("Light response sent");
+            }
+            else
+            {
+                Serial.println("Failed to read BH1750");
+                sendSerial2Response(RESP_SENSOR_FAULT, "Failed to read light sensor");
+            }
         }
         else
         {
             // 光照传感器异常
+            Serial.println("BH1750 not available");
             sendSerial2Response(RESP_SENSOR_FAULT, "Light sensor not available");
         }
     }

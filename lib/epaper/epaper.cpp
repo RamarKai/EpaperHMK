@@ -572,6 +572,4 @@ void updateEPaperSensorData()
         display_epaper.drawLine(leftWidth - 1, 0, leftWidth - 1, display_epaper.height(), GxEPD_BLACK);
 
     } while (display_epaper.nextPage());
-
-    Serial.println("E-Paper sensor data updated");
 }
