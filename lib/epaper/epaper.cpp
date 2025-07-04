@@ -17,7 +17,7 @@ void setCustomPhrase(const char *phrase)
 }
 
 // 是否启用测试数据模式（固定室内温度和湿度）
-bool useTestData = true;
+bool useTestData = false;
 float testIndoorTemperature = 20.0; // 测试室内温度为20度
 float testIndoorHumidity = 35.0;    // 测试室内湿度为35%（干燥室内湿度）
 
